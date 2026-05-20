@@ -1,74 +1,74 @@
-# 시각화 패턴 카탈로그
+# Visualization Pattern Catalog
 
-내용 유형별로 효과적인 HTML 표현 방식을 모은 참고 문서.
-**강제 템플릿이 아니다.** 영감을 얻거나 처음 시작점이 필요할 때만 본다.
+A reference for effective HTML representations by content type.
+**Not mandatory templates** — consult only when you need inspiration or a starting point.
 
-원본 영감: <https://thariqs.github.io/html-effectiveness/>
-로컬 사본: `references/examples/*.html` (20개 예제 + `_index.html`).
-**구체 구현이 궁금하면 실제 파일을 읽어라** — 설명보다 코드가 정확하다.
-
----
-
-## 공통 설계 원칙
-
-모든 효과적인 시각화에서 반복되는 5가지 패턴:
-
-1. **계층적 정보 아키텍처**: 메타 → TL;DR → 본문 → 부록(액션/용어). 스캔 가능한 헤더 깊이.
-2. **컬러 코딩된 의미 배지**: 상태를 작은 칩으로 압축 (Blocking/Nit/Safe, SEV-2, +/− 등).
-3. **앵커 + 인라인 점프**: 목차·파일:행 참조로 긴 문서를 짧게 만든다.
-4. **복사·내보내기 행동 유도**: "Copy markdown/diff/JSON/SVG" 버튼을 거의 모든 에디터에 둔다.
-5. **CSS 변수 토큰 팔레트**: 5색 정도의 통일된 팔레트, 다크모드도 같은 변수로 전환.
+Original source: <https://thariqs.github.io/html-effectiveness/>
+Local copies: `references/examples/*.html` (20 examples + `_index.html`).
+**For specific implementation details, read the actual file** — code is more precise than descriptions.
 
 ---
 
-## 카테고리별 패턴
+## Common design principles
 
-### 탐색·계획 (PLAN.md, 설계 문서)
+Five patterns that recur across every effective visualization:
 
-- **나란히 비교** ([code-approaches](https://thariqs.github.io/html-effectiveness/01-exploration-code-approaches.html)): 접근법 2~3개 수직 비교 + Pro/Con 표 + 인라인 메트릭 배지(`Bundle impact`)
-- **라이트·다크 토글 디자인 컴파** ([visual-designs](https://thariqs.github.io/html-effectiveness/02-exploration-visual-designs.html)): 4방향 × Light/Dark, 미세 애니메이션
-- **마일스톤→흐름→목업→코드 종단 흐름** ([implementation-plan](https://thariqs.github.io/html-effectiveness/16-implementation-plan.html)): 진행도 배지, 위험/완화 2열 표, 댓글 + 회신
-
-### 코드 리뷰 (REVIEW.md, PR 노트)
-
-- **주석 달린 PR** ([annotated-pr](https://thariqs.github.io/html-effectiveness/03-code-review-pr.html)): 개요 → 위험도 맵 → 파일 목록. 인라인 라인 주석 + Blocking/Nit/Safe 배지
-- **PR 서술문** ([pr-writeup](https://thariqs.github.io/html-effectiveness/17-pr-writeup.html)): TL;DR → Why → File-by-file → Test plan → Rollout. 파일:행 참조, ±라인 수 배지, Before/After 표
-- **모듈 맵** ([module-map](https://thariqs.github.io/html-effectiveness/04-code-understanding.html)): 다이어그램 → 5단계 콜스택 워크스루. `<details>` 로 접힌 소스 펼침
-
-### 디자인 시스템
-
-- **리빙 디자인 시스템** ([design-system](https://thariqs.github.io/html-effectiveness/05-design-system.html)): 색·타이포·간격·그림자·컴포넌트 계층 + 라이브 버튼/입력/배지
-- **컴포넌트 변형 시트** ([component-variants](https://thariqs.github.io/html-effectiveness/06-component-variants.html)): 6변형 그리드 + padding/border/shadow 슬라이더 라이브 조정 + 호버 시 Props 코드 표시
-
-### 프로토타이핑
-
-- **마이크로 인터랙션 샌드박스** ([animation](https://thariqs.github.io/html-effectiveness/07-prototype-animation.html)): 체크박스 클릭 → 채움→체크 그리기→취소선→축소. 스프링 이징
-- **드래그앤드롭 플로우** ([interaction](https://thariqs.github.io/html-effectiveness/08-prototype-interaction.html)): 사이드바 리스트 재정렬, 중앙선 통과 시 스냅. ~40줄 vanilla JS
-
-### 다이어그램
-
-- **SVG 시트** ([svg-illustrations](https://thariqs.github.io/html-effectiveness/10-svg-illustrations.html)): 3개 720×320 SVG + 개별 Download 버튼. 5색 팔레트, 일관 corner radius
-- **클릭 가능한 플로우차트** ([flowchart](https://thariqs.github.io/html-effectiveness/13-flowchart-diagram.html)): 단계 클릭 → 실행/소요시간/장애지점 패널. 직사각=프로세스, 다이아=결정
-
-### 덱·리서치·리포트
-
-- **화살표 키 슬라이드 덱** ([deck](https://thariqs.github.io/html-effectiveness/09-slide-deck.html)): 좌우 화살표 네비, 1/6 카운터, 메트릭 큰 숫자
-- **기능 학습 자료** ([feature-explainer](https://thariqs.github.io/html-effectiveness/14-research-feature-explainer.html)): 목차 + 4단계 확장 + 3열 코드 비교 + FAQ
-- **개념 시뮬레이터** ([concept-explainer](https://thariqs.github.io/html-effectiveness/15-research-concept-explainer.html)): 선형 학습 흐름 + 인터랙티브 시뮬레이터 (해시 링 add/remove/reset) + 비교표 + 용어사전
-- **주간 상태 리포트** ([status](https://thariqs.github.io/html-effectiveness/11-status-report.html)): KPI 큰 숫자 헤더 + Shipped 표 + 일별 히트맵
-- **장애 회고** ([incident](https://thariqs.github.io/html-effectiveness/12-incident-report.html)): 메타 칩 행(SEV-2/상태/owner) → TL;DR → 타임라인 → 근본원인 → 영향 → 액션
-
-### 커스텀 에디터
-
-- **트리아지 보드** ([triage-board](https://thariqs.github.io/html-effectiveness/18-editor-triage-board.html)): Now/Next/Later/Cut 칸반 + DnD + 태그 필터 + "Copy as markdown" 내보내기
-- **피처 플래그 에디터** ([feature-flags](https://thariqs.github.io/html-effectiveness/19-editor-feature-flags.html)): 토글 + 의존성 경고 자동 갱신 + Copy diff/Copy full JSON + "Pending changes (n)" 카운터
-- **프롬프트 튜너** ([prompt-tuner](https://thariqs.github.io/html-effectiveness/20-editor-prompt-tuner.html)): 좌 편집 / 우 라이브 프리뷰 + `{{slot}}` 슬롯 문법 + 토큰 카운트 + Copy prompt
+1. **Hierarchical information architecture**: Meta → TL;DR → body → appendix (actions/glossary). Scannable header depth.
+2. **Color-coded semantic badges**: Compress state into small chips (Blocking/Nit/Safe, SEV-2, +/− …).
+3. **Anchors + inline jump links**: Shorten long documents with TOCs and `file:line` references.
+4. **Copy/export calls-to-action**: Put a "Copy markdown/diff/JSON/SVG" button on almost every editor surface.
+5. **CSS-variable token palette**: A unified 5-color palette; dark mode switches through the same variables.
 
 ---
 
-## 재사용 스니펫
+## Patterns by category
 
-### 색·타이포 토큰 (다크모드 대응)
+### Exploration & planning (PLAN.md, design docs)
+
+- **Side-by-side comparison** ([code-approaches](https://thariqs.github.io/html-effectiveness/01-exploration-code-approaches.html)): 2–3 approaches stacked vertically + Pro/Con table + inline metric badges (`Bundle impact`).
+- **Light/dark design compare** ([visual-designs](https://thariqs.github.io/html-effectiveness/02-exploration-visual-designs.html)): 4 directions × Light/Dark toggles, subtle animations.
+- **Milestones → data flow → mockups → code** ([implementation-plan](https://thariqs.github.io/html-effectiveness/16-implementation-plan.html)): Progress badges, risk/mitigation 2-column table, threaded comments.
+
+### Code review (REVIEW.md, PR notes)
+
+- **Annotated PR** ([annotated-pr](https://thariqs.github.io/html-effectiveness/03-code-review-pr.html)): Overview → risk map → file list. Inline line annotations + Blocking/Nit/Safe badges.
+- **PR writeup** ([pr-writeup](https://thariqs.github.io/html-effectiveness/17-pr-writeup.html)): TL;DR → Why → File-by-file → Test plan → Rollout. `file:line` references, ±line-count badges, Before/After tables.
+- **Module map** ([module-map](https://thariqs.github.io/html-effectiveness/04-code-understanding.html)): Diagram → 5-step call-stack walkthrough. `<details>` toggles fold source.
+
+### Design system
+
+- **Living design system** ([design-system](https://thariqs.github.io/html-effectiveness/05-design-system.html)): Color/type/spacing/shadow/component hierarchy + live buttons, inputs, badges.
+- **Component variants sheet** ([component-variants](https://thariqs.github.io/html-effectiveness/06-component-variants.html)): 6-variant grid + padding/border/shadow sliders for live tuning + hover-reveal Props code.
+
+### Prototyping
+
+- **Micro-interaction sandbox** ([animation](https://thariqs.github.io/html-effectiveness/07-prototype-animation.html)): Click checkbox → fill → draw check → strike-through → shrink. Spring easing.
+- **Drag-and-drop flow** ([interaction](https://thariqs.github.io/html-effectiveness/08-prototype-interaction.html)): Reorder sidebar list, snap when crossing the midline. ~40 lines of vanilla JS.
+
+### Diagrams
+
+- **SVG sheet** ([svg-illustrations](https://thariqs.github.io/html-effectiveness/10-svg-illustrations.html)): Three 720×320 SVGs + individual Download buttons. 5-color palette, consistent corner radius.
+- **Clickable flowchart** ([flowchart](https://thariqs.github.io/html-effectiveness/13-flowchart-diagram.html)): Click a node → panel with runtime/duration/failure modes. Rect = process, diamond = decision.
+
+### Decks, research & reports
+
+- **Arrow-key slide deck** ([deck](https://thariqs.github.io/html-effectiveness/09-slide-deck.html)): Left/right arrow nav, 1/6 counter, big-number metrics.
+- **Feature explainer** ([feature-explainer](https://thariqs.github.io/html-effectiveness/14-research-feature-explainer.html)): TOC + 4-stage expand + 3-column code compare + FAQ.
+- **Concept simulator** ([concept-explainer](https://thariqs.github.io/html-effectiveness/15-research-concept-explainer.html)): Linear learning flow + interactive simulator (hash-ring add/remove/reset) + comparison table + glossary.
+- **Weekly status report** ([status](https://thariqs.github.io/html-effectiveness/11-status-report.html)): Big-number KPI header + Shipped table + daily heatmap.
+- **Incident report** ([incident](https://thariqs.github.io/html-effectiveness/12-incident-report.html)): Meta chip row (SEV-2/state/owner) → TL;DR → timeline → root cause → impact → actions.
+
+### Custom editors
+
+- **Triage board** ([triage-board](https://thariqs.github.io/html-effectiveness/18-editor-triage-board.html)): Now/Next/Later/Cut kanban + DnD + tag filter + "Copy as markdown" export.
+- **Feature flag editor** ([feature-flags](https://thariqs.github.io/html-effectiveness/19-editor-feature-flags.html)): Toggles + auto-updating dependency warnings + Copy diff / Copy full JSON + "Pending changes (n)" counter.
+- **Prompt tuner** ([prompt-tuner](https://thariqs.github.io/html-effectiveness/20-editor-prompt-tuner.html)): Left edit / right live preview + `{{slot}}` syntax + token count + Copy prompt.
+
+---
+
+## Reusable snippets
+
+### Color & type tokens (dark mode aware)
 
 ```css
 :root {
@@ -95,12 +95,12 @@ body {
 }
 ```
 
-### 의미 배지 시스템
+### Semantic badge system
 
 ```html
-<span class="badge badge--blocking">차단</span>
-<span class="badge badge--nit">사소</span>
-<span class="badge badge--safe">안전</span>
+<span class="badge badge--blocking">Blocking</span>
+<span class="badge badge--nit">Nit</span>
+<span class="badge badge--safe">Safe</span>
 <style>
 .badge { font: 600 11px/1 ui-monospace, monospace; padding: 3px 7px;
          border-radius: 4px; letter-spacing: .02em; }
@@ -115,13 +115,13 @@ body {
 </style>
 ```
 
-### KPI 헤더 (상태 리포트·회고 공용)
+### KPI header (status reports, postmortems)
 
 ```html
 <header class="kpi-row">
-  <div><b>14</b><span>PR 머지됨</span></div>
-  <div><b>3</b><span>장애</span></div>
-  <div><b>92%</b><span>그린 빌드</span></div>
+  <div><b>14</b><span>PRs merged</span></div>
+  <div><b>3</b><span>incidents</span></div>
+  <div><b>92%</b><span>green builds</span></div>
 </header>
 <style>
 .kpi-row { display: flex; gap: 32px; border-bottom: 1px solid var(--line); padding: 16px 0; flex-wrap: wrap; }
@@ -130,11 +130,11 @@ body {
 </style>
 ```
 
-### "소스 보기" 토글 (`<details>` 활용)
+### "Show source" toggle (via `<details>`)
 
 ```html
 <details class="source">
-  <summary>소스 보기 · auth/session.ts</summary>
+  <summary>show source · auth/session.ts</summary>
   <pre><code>export function createSession(...) { ... }</code></pre>
 </details>
 <style>
@@ -145,13 +145,13 @@ body {
 </style>
 ```
 
-### 화살표 키 슬라이드 덱
+### Arrow-key slide deck
 
 ```html
 <div id="deck">
-  <section>슬라이드 1</section>
-  <section hidden>슬라이드 2</section>
-  <section hidden>슬라이드 3</section>
+  <section>Slide 1</section>
+  <section hidden>Slide 2</section>
+  <section hidden>Slide 3</section>
 </div>
 <aside id="counter">1 / 3</aside>
 <script>
@@ -171,15 +171,15 @@ addEventListener('keydown', e => {
 </style>
 ```
 
-### 사이드바 + 본문 레이아웃 (검색 가능)
+### Sidebar + content layout (searchable)
 
 ```html
 <div class="layout">
   <aside class="sidebar">
-    <input type="search" placeholder="검색..." oninput="filter(this.value)">
-    <nav id="toc"><!-- 목차 --></nav>
+    <input type="search" placeholder="Search..." oninput="filter(this.value)">
+    <nav id="toc"><!-- TOC --></nav>
   </aside>
-  <main><!-- 본문 --></main>
+  <main><!-- Body --></main>
 </div>
 <style>
 .layout { display: grid; grid-template-columns: 240px 1fr; gap: 32px; }
@@ -188,13 +188,13 @@ addEventListener('keydown', e => {
 </style>
 ```
 
-### 카드 그리드 (상태별 색)
+### Card grid (color by state)
 
 ```html
 <div class="grid">
   <article class="card done">
-    <header><h3>제목</h3><span class="badge done">완료</span></header>
-    <p>본문</p>
+    <header><h3>Title</h3><span class="badge done">Done</span></header>
+    <p>Body</p>
   </article>
 </div>
 <style>
@@ -207,11 +207,11 @@ addEventListener('keydown', e => {
 </style>
 ```
 
-### 정렬 가능한 표
+### Sortable table
 
 ```html
 <table id="t">
-  <thead><tr><th onclick="sort(0)">이름</th><th onclick="sort(1)">상태</th></tr></thead>
+  <thead><tr><th onclick="sort(0)">Name</th><th onclick="sort(1)">Status</th></tr></thead>
   <tbody><!-- ... --></tbody>
 </table>
 <script>
@@ -226,19 +226,19 @@ function sort(col) {
 </script>
 ```
 
-### 복사 버튼
+### Copy button
 
 ```html
-<pre><code>코드 내용</code></pre>
-<button onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent).then(()=>{this.textContent='복사됨';setTimeout(()=>this.textContent='복사',1500)})">복사</button>
+<pre><code>code content</code></pre>
+<button onclick="navigator.clipboard.writeText(this.previousElementSibling.textContent).then(()=>{this.textContent='Copied';setTimeout(()=>this.textContent='Copy',1500)})">Copy</button>
 ```
 
-### 접기/펴기 (네이티브)
+### Collapsible (native `<details>`)
 
 ```html
 <details open>
-  <summary>섹션 제목</summary>
-  <div>내용</div>
+  <summary>Section title</summary>
+  <div>Content</div>
 </details>
 <style>
 details { background: var(--card); border-radius: var(--radius); padding: 8px 14px; margin-bottom: 8px; }
@@ -246,12 +246,12 @@ summary { cursor: pointer; font-weight: 600; }
 </style>
 ```
 
-### 타임라인 (수직)
+### Vertical timeline
 
 ```html
 <div class="timeline">
-  <div class="stop done"><div class="dot"></div><div class="content"><h4>1단계</h4></div></div>
-  <div class="stop active"><div class="dot"></div><div class="content"><h4>2단계</h4></div></div>
+  <div class="stop done"><div class="dot"></div><div class="content"><h4>Step 1</h4></div></div>
+  <div class="stop active"><div class="dot"></div><div class="content"><h4>Step 2</h4></div></div>
 </div>
 <style>
 .timeline { position: relative; padding-left: 24px; }
@@ -265,15 +265,15 @@ summary { cursor: pointer; font-weight: 600; }
 </style>
 ```
 
-### 탭
+### Tabs
 
 ```html
 <div class="tabs">
-  <button class="tab active" onclick="showTab(this,0)">개요</button>
-  <button class="tab" onclick="showTab(this,1)">상세</button>
+  <button class="tab active" onclick="showTab(this,0)">Overview</button>
+  <button class="tab" onclick="showTab(this,1)">Details</button>
 </div>
-<div class="panel active">개요 내용</div>
-<div class="panel">상세 내용</div>
+<div class="panel active">Overview content</div>
+<div class="panel">Details content</div>
 <script>
 function showTab(btn, i) {
   document.querySelectorAll('.tab').forEach((t, idx) => t.classList.toggle('active', idx === i));
@@ -289,7 +289,7 @@ function showTab(btn, i) {
 </style>
 ```
 
-### 스프링 이징 체크 애니메이션
+### Spring-easing check animation
 
 ```html
 <label class="check" data-done="false" onclick="this.dataset.done = this.dataset.done==='true' ? 'false' : 'true'">
@@ -297,7 +297,7 @@ function showTab(btn, i) {
     <path d="M5 12l5 5L20 7" fill="none" stroke="currentColor" stroke-width="2.5"
           stroke-linecap="round" stroke-linejoin="round"/>
   </svg>
-  <span>할 일 항목</span>
+  <span>Todo item</span>
 </label>
 <style>
 .check { display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
@@ -311,15 +311,15 @@ function showTab(btn, i) {
 </style>
 ```
 
-### Mermaid 다이어그램 (CDN, 필요 시만)
+### Mermaid diagram (CDN, only when needed)
 
 ```html
 <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 <div class="mermaid">
 flowchart LR
-  A[시작] --> B{판단}
-  B -->|예| C[실행]
-  B -->|아니오| D[중단]
+  A[Start] --> B{Decision}
+  B -->|yes| C[Run]
+  B -->|no|  D[Stop]
 </div>
 <script>mermaid.initialize({ startOnLoad: true, theme: 'default' });</script>
 ```
