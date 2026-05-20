@@ -4,12 +4,21 @@ Claude Code skill — render a markdown file or raw content into an interactive 
 
 ## What it solves
 
-Files like `PLAN.md`, `handoff.md`, or anything under `.planning/` are hard to grasp at a glance.
+Markdown is the default output for AI coding agents, but it's a thin pipe — linear, no interactivity, low information density. As agents produce more, the pipe clogs. Past a certain length, nobody reads the artifact ([one Anthropic blog put it bluntly](https://claude.com/blog/using-claude-code-the-unreasonable-effectiveness-of-html): _"I tend to not actually read more than a 100-line Markdown file."_).
+
+HTML has none of those limits. The same content becomes:
+
+- **Dense** — tables, SVG diagrams, badges instead of bullet lists
+- **Navigable** — TOC, anchors, search, tabs for large documents
+- **Interactive** — collapse, filter, sort, copy, toggle, sliders
+- **Shareable** — a single HTML file is a link colleagues will actually open
+
+`/visualize` flips any markdown Claude produces — `PLAN.md`, `handoff.md`, review notes, anything under `.planning/` — from a wall of text into a self-contained HTML artifact you can preview in VS Code instantly and share as a link.
 
 > You: `/visualize PLAN.md`
 > Claude: ✅ `.viz/PLAN.html` (table + timeline)
 
-VS Code Live Preview shows it instantly. Re-running the command on the same file auto-refreshes the preview.
+VS Code Live Preview shows it instantly; re-running on the same file auto-refreshes.
 
 ## How it works
 
