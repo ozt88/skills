@@ -5,41 +5,34 @@ description: Render input content or a markdown file into a single self-containe
 
 # visualize
 
-Don't merely convert markdown — produce HTML that uses what HTML can do (density, interactivity, spatial layout, navigation) so the reader grasps the work at a glance.
+Don't merely convert markdown. Produce HTML that uses density, interactivity, spatial layout, and navigation so the reader grasps the work at a glance.
 
 ## Core principles
 
-- **Information density**: tables instead of lists, SVG diagrams instead of paragraphs, visual badges instead of plain text
-- **Interactivity**: collapsibles, filters, sorting, copy buttons, toggles
-- **Spatial layout**: grids, sidebars, cards — more content per screen
-- **Navigation**: table of contents, anchors, search box for large documents
+- **Density**: tables instead of lists, SVG diagrams instead of paragraphs, badges instead of plain text.
+- **Interactivity**: collapsibles, filters, sorting, copy buttons, toggles, sliders.
+- **Spatial layout**: grids, sidebars, cards — more per screen.
+- **Navigation**: TOC, anchors, search for large documents.
+
+Avoid a literal markdown re-render, static read-only pages, and prose where a table would carry the data.
 
 ## Output language
 
-UI text in the HTML output (labels, statuses, captions, prompts, buttons) must be translated into the **user's current language** — match whatever language the user is using in this conversation. Do not hardcode any single language; detect from the user's messages and translate accordingly. Set `<html lang="...">` to the matching BCP 47 code (e.g. `ko`, `en`, `ja`). Keep code blocks, technical terms, file names, and proper nouns in their original form.
+UI text (labels, statuses, captions, prompts, buttons) must match the **user's current conversation language**. Detect from the user's recent messages, set `<html lang="...">` to the matching BCP-47 code (e.g. `ko`, `en`, `ja`), and translate every UI string. Keep code blocks, technical terms, file names, and proper nouns in their original form.
 
 ---
 
 ## Step 1: Resolve the source
 
-### A. Argument provided — proceed without asking
+**Argument given** → use it. If it's a path, read that file. If it's raw markdown (multi-line with headings/checkboxes), save to `.viz/_input.md` and use that. If the file name is ambiguous (no path, multiple matches), ask which.
 
-- **File path or name** (e.g. `PLAN.md`, `.planning/handoff.md`, `~/notes/spec.md`) → use that file
-- **Raw markdown text** (multi-line content with headings/checkboxes passed as the argument) → save to `.viz/_input.md` then use
+**No argument** → never auto-pick. Gather up to 3–5 candidates in this priority order:
 
-If the file name is ambiguous (no path, multiple matches), ask which one and proceed.
+1. `.md` files Claude wrote or edited this turn.
+2. A long markdown block (>30 lines, or with headings/checkboxes) in the previous assistant message.
+3. Recently modified project `.md` files (`find` or `git diff --name-only HEAD`).
 
-### B. No argument — always ask the user
-
-Do NOT auto-pick. Collect 3–5 candidates and let the user choose.
-
-Candidate sources, in priority order:
-
-1. **`.md` files written or edited by Claude this turn** (highest priority if present)
-2. **A long markdown block in the previous assistant message** (>30 lines, or containing headings/checkboxes) — label as "last assistant markdown"
-3. **Recently modified `.md` files in the project** (e.g. `PLAN.md`, `handoff.md`, `.planning/**/*.md`) — use `find` or `git diff --name-only HEAD`
-
-Ask using this shape (translated to the user's language):
+Then ask the user to choose, translated to their language. Example shape:
 
 > Choose what to visualize:
 > 1. `PLAN.md` — written this turn
@@ -47,7 +40,7 @@ Ask using this shape (translated to the user's language):
 > 3. Last assistant markdown block (52 lines)
 > 4. Specify a different file or content
 
-If there are zero candidates, ask: "What file or content should I visualize? (e.g. `PLAN.md`, or pass raw markdown)"
+If zero candidates exist: ask what to visualize.
 
 ---
 
@@ -55,38 +48,31 @@ If there are zero candidates, ask: "What file or content should I visualize? (e.
 
 ### Authoring rules
 
-- **Single file**: inline CSS and JS, no external dependencies (CDN libraries such as Mermaid or D3 are allowed only when a diagram genuinely needs them)
-- **Dark mode**: include a `prefers-color-scheme: dark` media query
-- **Localized UI**: set `<html lang>` to the user's language and translate all UI text accordingly
-- **Responsive**: must not break on mobile widths
+- **Single file**. Inline CSS and JS. External CDN libs (Mermaid, D3) only when a diagram genuinely needs them.
+- **Dark mode**. Include `prefers-color-scheme: dark`.
+- **Localized UI** per the rule above.
+- **Responsive**. Must not break on mobile widths.
 
-### Technique table (mix freely)
+### Pick a treatment
 
 | Content shape | Treatment |
 | --- | --- |
 | Many comparable attributes | Sortable / filterable table |
 | Ordered steps or phases | Vertical timeline, progress bar |
-| Items grouped by state | Kanban-style columns (visual grouping; no drag needed) |
+| Items grouped by state | Kanban-style columns (visual grouping) |
 | Dependencies or connections | SVG diagram or Mermaid |
 | Prose-heavy long document | Sidebar TOC + body + search box |
 | Checklists | Progress bar + done/todo badges |
-| Code or JSON snippets | Syntax highlight + copy button |
+| Code or JSON | Syntax highlight + copy button |
 | Parameters or options | Sliders / toggles for live tweaking |
 | Categorized items | Tabs or accordion |
 | Code review | Annotated diff, severity tags, file-by-file tour |
 
-### References
+Mix treatments freely. If a better representation comes to mind, use it.
 
-- `references/patterns.md` — common principles, category-specific patterns, reusable snippets
-- `references/examples/*.html` — 20 working examples. **If a specific implementation detail is unclear, read the actual file.**
+### When you need more depth
 
-These are not mandatory templates — if a better representation comes to mind, use it.
-
-### Anti-patterns
-
-- HTML that's just a literal markdown rendering (only headings, lists, paragraphs)
-- Static pages with no interactivity (single read-only view)
-- Presenting key data as prose when a table would convey it better
+Read `references/INDEX.md` (small routing card). It tells you whether to open `references/patterns.md` (category-specific approaches with example URLs), `references/snippets.md` (copy-paste HTML/CSS/JS), or the actual file in `references/examples/<N>-*.html` for full implementations. Don't pre-load anything beyond INDEX.md until needed.
 
 ---
 
@@ -104,13 +90,13 @@ Write to `.viz/<basename>.html` (e.g. `PLAN.md` → `.viz/PLAN.html`; inline inp
 
 ## Step 4: Report
 
-1–2 lines, in the user's language. Include the output path and the chosen treatment (e.g. "table + timeline", "searchable card grid").
-**First run only** (when the `touch` above just created the marker file): append one line telling the user to right-click the HTML and choose "Show Preview" in VS Code for auto-refresh.
+1–2 lines in the user's language. Include the output path and the treatment chosen (e.g. "table + timeline", "searchable card grid").
+**First run only** (when the `touch` above just created the marker): add one line — "Right-click the HTML in VS Code and pick **Show Preview** for auto-refresh."
 
 ---
 
 ## Exceptions
 
-- **Source file missing**: stop and ask.
-- **Source under 5 lines with no headings**: warn that there isn't much to visualize and confirm before proceeding.
-- **Re-render request**: keep the same source, apply a different treatment without re-resolving.
+- **Source missing** → stop and ask.
+- **Under 5 lines, no headings** → warn that there's little to visualize and confirm.
+- **Re-render request** → keep the same source, apply a different treatment.
