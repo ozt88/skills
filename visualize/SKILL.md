@@ -14,7 +14,7 @@ Don't merely convert markdown. Produce HTML that uses density, interactivity, sp
 - **Spatial layout**: grids, sidebars, cards — more per screen.
 - **Navigation**: TOC, anchors, search for large documents.
 
-Avoid a literal markdown re-render, static read-only pages, and prose where a table would carry the data.
+Avoid: literal markdown re-renders, static read-only pages, prose where a table would carry the data, and padding simple content with decorative sections it doesn't earn.
 
 ## Output language
 
@@ -70,6 +70,18 @@ If zero candidates exist: ask what to visualize.
 
 Mix treatments freely. If a better representation comes to mind, use it.
 
+### Size discipline
+
+Output HTML should scale with source depth, not max out by default:
+
+| Source markdown | Target HTML size | Typical treatment |
+| --- | --- | --- |
+| Under ~2 KB | Under ~10 KB | One simple treatment, no extra tabs / diagrams |
+| ~2–10 KB | ~10–25 KB | Mix 2–3 treatments |
+| Over ~10 KB or multi-section work | Up to ~35 KB | Full toolkit (tabs, search, SVG, etc.) |
+
+If you exceed the band for the source size, briefly note it in the report so the user can ask for a lighter version (e.g. "HTML is 34 KB — try `/visualize ... as outline` for a slimmer one"). **Don't pad with decorative sections if the content doesn't earn them.**
+
 ### When you need more depth
 
 Read `references/INDEX.md` (small routing card). It tells you whether to open `references/patterns.md` (category-specific approaches with example URLs), `references/snippets.md` (copy-paste HTML/CSS/JS), or the actual file in `references/examples/<N>-*.html` for full implementations. Don't pre-load anything beyond INDEX.md until needed.
@@ -90,7 +102,7 @@ Write to `.viz/<basename>.html` (e.g. `PLAN.md` → `.viz/PLAN.html`; inline inp
 
 ## Step 4: Report
 
-1–2 lines in the user's language. Include the output path and the treatment chosen (e.g. "table + timeline", "searchable card grid").
+1–2 lines in the user's language. Include the output path and the treatment chosen (e.g. "table + timeline", "searchable card grid"). If the HTML exceeded the size band for the source, append a one-line note offering a slimmer rerun.
 **First run only** (when the `touch` above just created the marker): add one line — "Right-click the HTML in VS Code and pick **Show Preview** for auto-refresh."
 
 ---
