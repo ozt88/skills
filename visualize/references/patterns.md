@@ -1,6 +1,6 @@
 # Patterns by category
 
-Effective HTML treatments per content type. Pair with [`snippets.md`](./snippets.md) for ready-to-paste code, or read the actual file in `examples/` for full implementation.
+Effective HTML treatments per content type. Read the actual file in `examples/` for full implementation — palette, typography, and layout all come from there.
 
 ## Contents
 

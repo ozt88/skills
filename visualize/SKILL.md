@@ -84,7 +84,12 @@ If you exceed the band for the source size, briefly note it in the report so the
 
 ### When you need more depth
 
-Read `references/INDEX.md` (small routing card). It tells you whether to open `references/patterns.md` (category-specific approaches with example URLs), `references/snippets.md` (copy-paste HTML/CSS/JS), or the actual file in `references/examples/<N>-*.html` for full implementations. Don't pre-load anything beyond INDEX.md until needed.
+1. Read `references/INDEX.md` to find the best-matching example category.
+2. Read `references/patterns.md` to identify which `examples/<N>-*.html` file fits the content shape.
+3. **Read that example file directly** — it is the canonical source for palette, typography, layout, and component style. Copy the `:root` variables, body, page, nav, h1, h2, and p CSS **verbatim** from the example. Do not approximate or round any values.
+4. Only open `references/snippets.md` for a specific micro-component (e.g. a toggle switch or copy button) that the example file doesn't already contain. Never use snippets as a substitute for the example's overall aesthetic.
+
+Don't pre-load anything beyond INDEX.md until needed.
 
 ---
 

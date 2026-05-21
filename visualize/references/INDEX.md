@@ -7,7 +7,6 @@ Routing card. Read this first when you need depth beyond SKILL.md, then read **o
 | You need… | Read |
 | --- | --- |
 | A category-specific approach (planning doc, code review, diagram, report, editor, …) | [`patterns.md`](./patterns.md) |
-| Copy-paste HTML/CSS/JS (badges, tables, timelines, tabs, kanban, …) | [`snippets.md`](./snippets.md) |
 | The real implementation of a specific technique | `examples/<N>-*.html` |
 
 ## Common principles (always apply)

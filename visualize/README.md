@@ -48,7 +48,7 @@ visualize/
 ├── SKILL.md                   # Skill definition Claude reads
 ├── README.md                  # This file
 └── references/
-    ├── patterns.md            # Pattern catalog + reusable snippets
+    ├── patterns.md            # Pattern catalog (routes to examples/)
     └── examples/              # 20 working HTML examples for inspiration
 ```
 
