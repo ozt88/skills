@@ -49,7 +49,45 @@ If zero candidates exist: ask what to visualize.
 ### Authoring rules
 
 - **Single file**. Inline CSS and JS. External CDN libs (Mermaid, D3) only when a diagram genuinely needs them.
-- **Dark mode**. Include `prefers-color-scheme: dark`.
+- **Dark mode**. Every color must go through a CSS variable — no hardcoded hex values outside `:root`. Define all surface, text, and accent colors in `:root`, then re-define them inside `@media (prefers-color-scheme: dark) { :root { … } }`. This two-block pattern is mandatory:
+
+  ```css
+  :root {
+    --bg:      #FAF9F5;
+    --surface: #ffffff;
+    --text:    #3D3D3A;
+    --heading: #141413;
+    --border:  #D1CFC5;
+    --muted:   #87867F;
+    --accent:  #D97757;
+    /* semantic state tokens */
+    --yes-bg: #F3FAF0; --yes-border: #788C5D;
+    --no-bg:  #FEF5F3; --no-border:  #C0392B; --no-text: #C0392B;
+    /* badge tokens — one set per hue */
+    --badge-blue-bg: #EEF3FA; --badge-blue-fg: #2471A3; --badge-blue-bd: #BDD0F0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg:      #1A1A17;
+      --surface: #272724;
+      --text:    #C0BEB4;
+      --heading: #F0EEE6;
+      --border:  #3A3A36;
+      --muted:   #87867F;
+      --accent:  #D97757;
+      --yes-bg: #162016; --yes-border: #4A6A3A;
+      --no-bg:  #281414; --no-border:  #8A2A2A; --no-text: #E07070;
+      --badge-blue-bg: #141C28; --badge-blue-fg: #7AABDB; --badge-blue-bd: #2A4060;
+    }
+    body { background: var(--bg); }
+  }
+  ```
+
+  **Three rules that eliminate mixed-mode bugs:**
+  1. CSS classes use only `var(--…)` — never `background: #fff`, `color: #333`, etc.
+  2. SVG `fill`/`stroke` attributes use `var(--…)` or `currentColor` — never hex literals.
+  3. JavaScript that sets `element.style.color` or `element.style.background` must use `var(--…)` strings, or toggle a CSS class instead.
+
 - **Localized UI** per the rule above.
 - **Responsive**. Must not break on mobile widths.
 
