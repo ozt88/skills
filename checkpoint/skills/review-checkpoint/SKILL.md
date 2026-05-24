@@ -86,10 +86,11 @@ Forbidden:
 
 When `review-checkpoint` is invoked because hook-injected context says `PostCompact` review is pending:
 
-1. Read `.checkpoint/sessions/<session_id>/state.json`.
-2. Read nearby `events.jsonl` entries around the latest `post_compact`.
-3. Write a rollup such as `rollups/001-post-compact.md`.
-4. Update `state.json`:
+1. Use the exact `session_id` from the hook-injected context when present.
+2. Read `.checkpoint/sessions/<session_id>/state.json`.
+3. Read nearby `events.jsonl` entries around the latest `post_compact`.
+4. Write a rollup such as `rollups/001-post-compact.md`.
+5. Update `state.json`:
 
 ```json
 {
@@ -99,6 +100,8 @@ When `review-checkpoint` is invoked because hook-injected context says `PostComp
 ```
 
 Set `reviewed_compact_count` to the `compact_count` that the rollup covers. Preserve existing state keys.
+
+Do not guess the session by newest directory if the injected context includes `session_id`; stale compact reminders can come from an older resumed session.
 
 ### Rollup Content
 

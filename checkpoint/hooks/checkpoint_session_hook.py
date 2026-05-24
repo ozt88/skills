@@ -83,7 +83,7 @@ def rollup_count(session_dir: pathlib.Path) -> int:
     return len([path for path in rollups_dir.glob("*.md") if path.is_file()])
 
 
-def pending_compact_review(session_dir: pathlib.Path, state: dict) -> dict | None:
+def pending_compact_review(session_dir: pathlib.Path, state: dict, session_id: str) -> dict | None:
     compact_count = int(state.get("compact_count", 0))
     if compact_count <= 0:
         return None
@@ -94,6 +94,8 @@ def pending_compact_review(session_dir: pathlib.Path, state: dict) -> dict | Non
     if reviewed_count >= compact_count:
         return None
     return {
+        "session_id": session_id,
+        "session_dir": str(session_dir),
         "compact_count": compact_count,
         "reviewed_compact_count": reviewed_count,
         "trigger": state.get("last_compact_trigger"),
@@ -102,17 +104,20 @@ def pending_compact_review(session_dir: pathlib.Path, state: dict) -> dict | Non
 
 
 def compact_review_context(pending: dict) -> str:
+    session_id = pending.get("session_id") or "unknown"
+    session_dir = pending.get("session_dir") or ".checkpoint/sessions/<session_id>"
     trigger = pending.get("trigger") or "unknown"
     turn_id = pending.get("turn_id") or "unknown"
     compact_count = pending.get("compact_count")
     reviewed_count = pending.get("reviewed_compact_count")
     return (
         "Checkpoint PostCompact review is pending. "
+        f"session_id={session_id}, "
         f"compact_count={compact_count}, reviewed_compact_count={reviewed_count}, "
         f"trigger={trigger}, turn_id={turn_id}. "
         "Before handling the user's new request, invoke the `review-checkpoint` skill, "
         "review the compacted session flow, and write a session-local rollup under "
-        "`.checkpoint/sessions/<session_id>/rollups/` when possible. "
+        f"`{session_dir}/rollups/` when possible. "
         "After that, ask whether to continue or close the session with `save-checkpoint`."
     )
 
@@ -147,7 +152,7 @@ def ensure_session_dir(repo_root: pathlib.Path, hook_input: dict) -> tuple[pathl
     return session_dir, session_id
 
 
-def handle_session_start(session_dir: pathlib.Path, hook_input: dict) -> dict:
+def handle_session_start(session_dir: pathlib.Path, session_id: str, hook_input: dict) -> dict:
     source = str(hook_input.get("source") or "unknown")
     state_path = session_dir / "state.json"
     state = load_state(state_path)
@@ -165,7 +170,7 @@ def handle_session_start(session_dir: pathlib.Path, hook_input: dict) -> dict:
         },
     )
     if source == "compact":
-        pending = pending_compact_review(session_dir, state)
+        pending = pending_compact_review(session_dir, state, session_id)
         if pending:
             append_jsonl(
                 session_dir / "events.jsonl",
@@ -173,6 +178,7 @@ def handle_session_start(session_dir: pathlib.Path, hook_input: dict) -> dict:
                     "e": "post_compact_review_reminder",
                     "ts": now_iso(),
                     "source": "session_start",
+                    "session_id": session_id,
                     "compact_count": pending.get("compact_count"),
                     "reviewed_compact_count": pending.get("reviewed_compact_count"),
                 },
@@ -188,7 +194,7 @@ def handle_session_start(session_dir: pathlib.Path, hook_input: dict) -> dict:
     return {"continue": True, "suppressOutput": True}
 
 
-def handle_user_prompt(session_dir: pathlib.Path, hook_input: dict) -> dict:
+def handle_user_prompt(session_dir: pathlib.Path, session_id: str, hook_input: dict) -> dict:
     prompt = str(hook_input.get("prompt") or "")
     prompt = prompt.encode("utf-8", errors="replace").decode("utf-8")
     lead, tail = prompt_excerpt(prompt)
@@ -212,7 +218,7 @@ def handle_user_prompt(session_dir: pathlib.Path, hook_input: dict) -> dict:
             "tail": tail,
         },
     )
-    pending = pending_compact_review(session_dir, state)
+    pending = pending_compact_review(session_dir, state, session_id)
     if pending:
         append_jsonl(
             session_dir / "events.jsonl",
@@ -220,6 +226,7 @@ def handle_user_prompt(session_dir: pathlib.Path, hook_input: dict) -> dict:
                 "e": "post_compact_review_reminder",
                 "ts": now_iso(),
                 "source": "user_prompt",
+                "session_id": session_id,
                 "turn_id": hook_input.get("turn_id"),
                 "compact_count": pending.get("compact_count"),
                 "reviewed_compact_count": pending.get("reviewed_compact_count"),
@@ -297,13 +304,13 @@ def handle_post_compact(session_dir: pathlib.Path, hook_input: dict) -> dict:
 def main() -> int:
     hook_input = read_input()
     repo_root = find_repo_root(hook_input.get("cwd"))
-    session_dir, _ = ensure_session_dir(repo_root, hook_input)
+    session_dir, session_id = ensure_session_dir(repo_root, hook_input)
     event = hook_input.get("hook_event_name")
 
     if event == "SessionStart":
-        out = handle_session_start(session_dir, hook_input)
+        out = handle_session_start(session_dir, session_id, hook_input)
     elif event == "UserPromptSubmit":
-        out = handle_user_prompt(session_dir, hook_input)
+        out = handle_user_prompt(session_dir, session_id, hook_input)
     elif event == "PreCompact":
         out = handle_pre_compact(session_dir, hook_input)
     elif event == "PostCompact":
