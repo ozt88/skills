@@ -100,6 +100,30 @@ Graph Home Check
 
 If confirmation is not needed, continue and include the chosen graph home in the final response.
 
+## Archive Closed Graphs
+
+Active checkpoint graphs live in:
+
+```text
+<project-root>/.checkpoint/graphs/<slug>/
+```
+
+When `save-checkpoint` determines that a graph has no remaining executable work, move the whole graph folder to:
+
+```text
+<project-root>/.checkpoint/archive/graphs/<slug>/
+```
+
+Do not require a separate `Completed` status in `index.md`. Archive location is the completion signal.
+
+Archive a graph when:
+
+- no `Ready`, `In Progress`, or meaningfully `Blocked` node remains
+- `Recommended Next` is absent or no longer executable
+- remaining work was completed, dropped, or superseded by another graph
+
+After archiving, `next-checkpoint` should no longer treat the graph as a normal resume candidate.
+
 ## Core Contract
 
 Do not invent a new graph structure until you have inventoried the session outputs.
@@ -161,6 +185,7 @@ Exclude:
    - mark complete, ready, blocked, parked, superseded, or dropped nodes
    - write a progress snapshot when work is not complete
    - do not add future-only nodes unless they represent work already started in this session
+   - if no executable work remains, archive the graph folder under `.checkpoint/archive/graphs/`
 8. Self-audit gate:
    - run the `audit-checkpoint` checklist against the updated graph
    - fix High and Medium issues introduced by this save
@@ -168,6 +193,7 @@ Exclude:
 9. End-of-session handoff:
    - state whether `plan-checkpoint` is needed before clearing
    - if existing next executable nodes are already clear, say `plan-checkpoint` may be skipped
+   - if the graph was archived, say `next-checkpoint` will not select it by default
    - if the next work is only a future intention and no existing node represents it, say `plan-checkpoint` is needed instead of creating the node
    - if started-but-unfinished work exists but is not ready to formalize, list it inside the relevant existing node under `Node Candidates`
    - tell the user the next fresh session should use `next-checkpoint`

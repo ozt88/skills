@@ -27,6 +27,8 @@ Check:
 - `index.md` stays an index, not a context dump.
 - `DECISIONS.md` stays decision-oriented, not a full project context dump.
 - checkpoint scope matches the current repo, files, and newest user request.
+- active resume candidates live under `.checkpoint/graphs/`.
+- archived graphs under `.checkpoint/archive/graphs/` are not treated as active unless explicitly requested.
 
 ## Severity
 

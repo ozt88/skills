@@ -41,28 +41,39 @@ Graph Home Check
 
 If confirmation is not needed, activate the graph and include the chosen graph home in the response.
 
+## Active Graph Set
+
+By default, search only active graphs under:
+
+```text
+<project-root>/.checkpoint/graphs/
+```
+
+Archived graphs under `.checkpoint/archive/graphs/` are historical. Do not select them unless the user explicitly asks to inspect or restore an archived graph.
+
 ## Workflow
 
 1. Locate checkpoint graph.
 2. Read `index.md` first.
 3. Run the Graph Home Confirmation Gate before activating it.
-4. Verify the newest user request against checkpoint status.
-5. Exclude:
+4. Exclude archived graphs unless explicitly requested.
+5. Verify the newest user request against checkpoint status.
+6. Exclude:
    - Done nodes
    - Blocked nodes with unmet dependencies
    - Parked nodes whose trigger is not met
    - Superseded or dropped nodes
-6. Select next node:
+7. Select next node:
    - use `Recommended Next` if valid and user asked for it
    - otherwise rank ready nodes by request match, unlock value, context cost, risk reduction, and freshness
-7. If multiple plausible nodes remain, ask the user to choose.
-8. Read only:
+8. If multiple plausible nodes remain, ask the user to choose.
+9. Read only:
    - relevant `index.md` status
    - relevant `DECISIONS.md` CP-ADR entries
    - selected node file
    - direct dependency output contracts if required
-9. Surface the selected node context to the active session.
-10. Update state if selection/progress changes.
+10. Surface the selected node context to the active session.
+11. Update state if selection/progress changes.
 
 ## Candidate Display
 
