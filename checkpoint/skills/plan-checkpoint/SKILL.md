@@ -23,36 +23,29 @@ Create the smallest graph that makes future execution safe.
 
 Do not summarize a whole project. Do not duplicate existing source-of-truth documents.
 
-## Storage Home Guard
+## Storage Home Confirmation Gate
 
-Checkpoint graph storage must be durable. Do not create or update authoritative checkpoint graphs inside transient paths, including:
-
-- `.tmp/`
-- `tmp/`
-- throwaway clones
-- downloaded archives
-- temporary worktrees created only to publish or inspect another repository
-
-If the current work uses a transient clone, separate:
-
-- working repo: the clone where files are inspected or edited
-- checkpoint graph home: a durable checkpoint location
-
-Prefer the current project's checkpoint storage when the user is working inside a durable project workspace:
+Checkpoint graphs live under the current project root:
 
 ```text
-<current-project>/.checkpoint/graphs/<slug>/
+<project-root>/.checkpoint/graphs/<slug>/
 ```
 
-Use global checkpoint storage only when there is no durable project workspace or the user explicitly wants user-level global checkpoint state:
+Use the project root that contains the active user work, not a temporary clone or helper repo unless that helper repo is explicitly the project.
+
+Before proposing or writing checkpoint graph files, identify the selected graph home. If this is anything other than `<project-root>/.checkpoint/graphs/<slug>/`, ask the user to confirm first.
 
 ```text
-C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\
+Graph Home Check
+- current project: <path or none>
+- selected graph home: <path>
+- working repo/context: <path or none>
+- existing graph home from index.md: <path or none>
+- reason: <why this home was chosen>
+- confirmation needed: yes|no
 ```
 
-Use repo-local checkpoint storage only when the repository path itself is durable and is the long-term owner of the checkpoint.
-
-Before writing graph files, state the chosen graph home in the plan proposal. If the only available repo path is transient, ask the user to approve global storage or provide a durable repo path.
+If confirmation is not needed, include the chosen graph home in the plan proposal and continue through the normal Interactive Planning Gate.
 
 ## Interactive Planning Gate
 
@@ -103,10 +96,8 @@ If the user explicitly requests auto mode, such as `auto`, `비대화형`, or `�
 8. Add dependencies and edge meanings.
 9. Ask only for decisions that affect node scope, ordering, parked work, or storage.
 10. Choose storage:
-   - current project work: `<current-project>/.checkpoint/graphs/<slug>/`
-   - durable repo-owned work: `<repo>/.checkpoint/graphs/<slug>/`
-   - global work only when project-less or explicitly global: `C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\`
-   - never choose a transient `.tmp` path as the graph home
+   - default: `<project-root>/.checkpoint/graphs/<slug>/`
+   - run the Graph Home Confirmation Gate before writing if choosing any other location
 11. Write:
    - `index.md`
    - `DECISIONS.md`

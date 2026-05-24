@@ -74,35 +74,31 @@ Do not add candidates for merely imagined future work. If no work was started, u
 
 `plan-checkpoint` may later read these candidates and create new nodes from them. `save-checkpoint` must not create those nodes.
 
-## Storage Home Guard
+## Storage Home Confirmation Gate
 
-Checkpoint graph storage must be durable. Do not save authoritative checkpoint state inside transient paths, including:
-
-- `.tmp/`
-- `tmp/`
-- throwaway clones
-- downloaded archives
-- temporary worktrees created only to publish or inspect another repository
-
-If the current session edited files in a transient clone, keep that clone as evidence or working repo context only. Save the checkpoint graph under a durable owner:
-
-- current project storage when the user is working inside a durable project workspace
-- repo-local storage only when the repo path itself is durable
-- global storage only when there is no durable project workspace or the user explicitly wants user-level global checkpoint state
-
-Current project storage:
+Checkpoint graphs live under the current project root:
 
 ```text
-<current-project>/.checkpoint/graphs/<slug>/
+<project-root>/.checkpoint/graphs/<slug>/
 ```
 
-Global storage:
+Use the project root that contains the active user work, not a temporary clone or helper repo unless that helper repo is explicitly the project.
+
+Before writing checkpoint graph files, identify the selected graph home. If this is anything other than `<project-root>/.checkpoint/graphs/<slug>/`, ask the user to confirm first.
+
+Print a short check when the location could be confused:
 
 ```text
-C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\
+Graph Home Check
+- current project: <path or none>
+- selected graph home: <path>
+- working repo/context: <path or none>
+- existing graph home from index.md: <path or none>
+- reason: <why this home was chosen>
+- confirmation needed: yes|no
 ```
 
-If an existing checkpoint graph is found under a transient path, do not continue treating it as authoritative. Migrate or recreate it under durable storage before updating state.
+If confirmation is not needed, continue and include the chosen graph home in the final response.
 
 ## Core Contract
 
@@ -154,10 +150,8 @@ Exclude:
    - preserve canonical sources as links/paths
    - preserve decisions as checkpoint-local ADRs in `DECISIONS.md`
 5. Build or update checkpoint graph:
-   - current project work: `<current-project>/.checkpoint/graphs/<slug>/`
-   - durable repo-owned work: `<repo>/.checkpoint/graphs/<slug>/`
-   - global work only when project-less or explicitly global: `C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\`
-   - transient `.tmp` paths are not valid graph homes
+   - default: `<project-root>/.checkpoint/graphs/<slug>/`
+   - run the Graph Home Confirmation Gate before writing if choosing any other location
 6. Write:
    - `index.md` for routing and canonical node state
    - `DECISIONS.md` for checkpoint-local ADRs, entrypoints, rejected directions, and completed-do-not-reopen decisions

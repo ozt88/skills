@@ -17,34 +17,35 @@ save-checkpoint -> plan-checkpoint when needed -> clear/new session -> next-chec
 
 Do not load the old handoff or full prior conversation by default. The graph is the resume surface.
 
-## Storage Home Guard
+## Storage Home Confirmation Gate
 
-Do not activate checkpoint graphs from transient storage as authoritative state.
+Checkpoint graphs live under the current project root:
 
-Transient storage includes:
+```text
+<project-root>/.checkpoint/graphs/<slug>/
+```
 
-- `.tmp/`
-- `tmp/`
-- throwaway clones
-- downloaded archives
-- temporary worktrees created only to publish or inspect another repository
+Use the project root that contains the active user work, not a temporary clone or helper repo unless that helper repo is explicitly the project.
 
-If a matching graph is found under a transient path:
+Before activating a checkpoint graph, identify the selected graph home. If this is anything other than `<project-root>/.checkpoint/graphs/<slug>/`, ask the user to confirm first.
 
-1. report that the graph home is not durable
-2. first look for a durable copy under the current project `.checkpoint/graphs/`
-3. then look under a durable repo-local `.checkpoint/graphs/`
-4. use `C:\Users\DELL\.codex\.checkpoint\graphs\` only for project-less or explicitly global checkpoint state
-5. activate the durable copy if one exists
-6. if no durable copy exists, stop and ask whether to migrate it before continuing
+```text
+Graph Home Check
+- current project: <path or none>
+- selected graph home: <path>
+- working repo/context: <path or none>
+- existing graph home from index.md: <path or none>
+- reason: <why this home was chosen>
+- confirmation needed: yes|no
+```
 
-Use transient clone paths only as working repo context inside a selected node, not as the graph home.
+If confirmation is not needed, activate the graph and include the chosen graph home in the response.
 
 ## Workflow
 
 1. Locate checkpoint graph.
 2. Read `index.md` first.
-3. Verify the graph home is durable before activating it.
+3. Run the Graph Home Confirmation Gate before activating it.
 4. Verify the newest user request against checkpoint status.
 5. Exclude:
    - Done nodes
@@ -84,7 +85,7 @@ Before acting:
 
 - prefer the newest user message over saved state
 - verify relevant files and artifacts exist
-- reject transient graph homes unless the user explicitly asks to inspect that stale copy
+- ask for confirmation when the graph home is ambiguous or surprising
 - stop and explain conflicts between checkpoint state and local state
 
 ## State Update Gate
