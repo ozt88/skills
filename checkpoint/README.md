@@ -2,7 +2,7 @@
 
 Checkpoint is a context management workflow for long-running AI work sessions.
 
-It has two jobs:
+It has three jobs:
 
 1. Review context rot inside an active session and suggest `save-checkpoint` before the session becomes unsafe.
 2. Replace oversized handoff documents with a checkpoint graph that can split work, track blockers, and return to the real problem when blockers are resolved.
@@ -17,7 +17,8 @@ The default lifecycle is:
 ```text
 active session
   -> hooks record lightweight session evidence
-  -> PostCompact automatically invokes review-checkpoint
+  -> PostCompact emits a review-required systemMessage
+  -> the active agent runs review-checkpoint before continuing
   -> review-checkpoint reviews context rot or task drift
   -> save-checkpoint captures the current session and closes the active work state
   -> plan-checkpoint prepares the next-session graph when future work is not already explicit
@@ -29,6 +30,7 @@ In other words:
 
 - hooks record evidence; they do not write checkpoint graphs.
 - `PostCompact` is the automatic review boundary.
+- `PostCompact` cannot directly execute a skill; it returns a `systemMessage` that requires the active agent to run `review-checkpoint`.
 - `review-checkpoint` summarizes the compacted segment and asks whether to continue or save.
 - `save-checkpoint` is how a full or risky session is safely ended.
 - `plan-checkpoint` is how unresolved future work is shaped before the next session starts.
@@ -41,7 +43,7 @@ In other words:
 Checkpoint has two install surfaces:
 
 1. Skills: copied into the Codex skills root.
-2. Hooks: copied into the target repository so Codex can discover `.codex/hooks.json`.
+2. Optional hooks: installed into the global Codex config as a session evidence layer.
 
 ### Install Skills
 
@@ -66,31 +68,49 @@ cp -R skills/next-checkpoint ~/.codex/skills/
 cp -R skills/audit-checkpoint ~/.codex/skills/
 ```
 
-### Install Hooks
+### Install Optional Global Hooks
 
-Hooks are repo-local. Copy `.codex/` into each repository where you want checkpoint session logging:
-
-```bash
-cp -R .codex /path/to/target-repo/
-```
-
-Then open that target repository in Codex and run:
+The checkpoint skills work without hooks. Install hooks only when you want Codex to record lightweight session-local evidence under each active workspace:
 
 ```text
-/hooks
+.checkpoint/sessions/<session_id>/
+  session.json
+  state.json
+  events.jsonl
 ```
 
-Review and trust the hook definitions before expecting them to run. Codex discovers repo-local hooks from `<repo>/.codex/hooks.json`.
+PowerShell installer:
+
+```powershell
+.\scripts\install-global-hooks.ps1
+```
+
+The installer copies `hooks/checkpoint_session_hook.py` into `~/.codex/hooks/` and writes hook configuration to:
+
+```text
+~/.codex/requirements.toml
+~/.codex/config.toml
+```
+
+Restart Codex after installing. If Codex asks to review or trust the hook, approve it before expecting runtime records.
+
+The hook is non-authoritative. It writes session evidence only; checkpoint graph state is still owned by `save-checkpoint`, `plan-checkpoint`, `next-checkpoint`, and `audit-checkpoint`.
 
 ### Windows Notes
 
-The included hook config has `commandWindows` entries that run the Python hook through the target repo root. Python must be available as `python`.
+The included hook config has `command_windows` entries that run:
 
-If your environment uses `py -3` instead, edit `.codex/hooks.json` in the target repo and replace the `commandWindows` launcher accordingly.
+```text
+python "%USERPROFILE%\.codex\hooks\checkpoint_session_hook.py"
+```
+
+Python must be available as `python`.
+
+If your environment uses `py -3` instead, edit `~/.codex/requirements.toml` and `~/.codex/config.toml` accordingly.
 
 ### Verify Hook Installation
 
-After trust is granted:
+After restart and trust:
 
 - `SessionStart` should initialize `.checkpoint/sessions/<session_id>/session.json`.
 - `UserPromptSubmit` should append prompt evidence to `.checkpoint/sessions/<session_id>/events.jsonl`.
@@ -124,6 +144,7 @@ Hooks should write only lightweight session-local evidence:
 ```text
 .checkpoint/sessions/<session_id>/
   session.json
+  state.json
   events.jsonl
   rollups/
     001-post-compact.md
@@ -143,7 +164,7 @@ UserPromptSubmit
 
 PostCompact
   -> record compact trigger/count
-  -> invoke review-checkpoint automatically
+  -> return a systemMessage requiring review-checkpoint before continuing
 
 review-checkpoint
   -> summarize the just-compacted request flow
@@ -215,14 +236,15 @@ skills/
   audit-checkpoint/
 ```
 
-The repository also includes repo-local Codex hooks:
+The repository also includes optional global Codex hook assets:
 
 ```text
-.codex/hooks.json
-.codex/hooks/checkpoint_session_hook.py
+hooks/checkpoint_session_hook.py
+hooks/requirements.example.toml
+scripts/install-global-hooks.ps1
 ```
 
-Codex discovers repo-local hooks from `<repo>/.codex/hooks.json`. Review and trust the hook definition with `/hooks` before expecting it to run. The hook writes session-local evidence and emits a `PostCompact` review signal; it does not execute `save-checkpoint` or write graph state.
+The hook writes session-local evidence and emits a `PostCompact` review signal; it does not execute `save-checkpoint` or write graph state.
 
 Current Codex command hooks cannot directly call a skill as an API. The `PostCompact` hook records the compact event and returns a `systemMessage` instructing the active agent to invoke `review-checkpoint` before continuing.
 
@@ -261,7 +283,7 @@ Each node should contain enough context to execute that unit, but not the entire
 
 Session boundary review.
 
-It is automatically invoked after `PostCompact` and can also be called manually. It reviews compacted, long, or drifting sessions and explains whether continuing may cause context loss or context pollution. It should only offer:
+It is required after `PostCompact` and can also be called manually. The hook supplies the requirement through `systemMessage`; the active agent performs the skill invocation. It reviews compacted, long, or drifting sessions and explains whether continuing may cause context loss or context pollution. It should only offer:
 
 - continue in the current session
 - save current work with `save-checkpoint`

@@ -1,0 +1,35 @@
+[features]
+hooks = true
+
+[hooks]
+managed_dir = "~/.codex/hooks"
+windows_managed_dir = 'C:\Users\YOUR_USER\.codex\hooks'
+
+[[hooks.SessionStart]]
+matcher = "startup|resume|clear|compact"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = 'python3 "$HOME/.codex/hooks/checkpoint_session_hook.py"'
+command_windows = 'python "C:\Users\YOUR_USER\.codex\hooks\checkpoint_session_hook.py"'
+timeout = 10
+statusMessage = "Initializing checkpoint session log"
+
+[[hooks.UserPromptSubmit]]
+
+[[hooks.UserPromptSubmit.hooks]]
+type = "command"
+command = 'python3 "$HOME/.codex/hooks/checkpoint_session_hook.py"'
+command_windows = 'python "C:\Users\YOUR_USER\.codex\hooks\checkpoint_session_hook.py"'
+timeout = 10
+statusMessage = "Recording checkpoint session prompt"
+
+[[hooks.PostCompact]]
+matcher = "manual|auto"
+
+[[hooks.PostCompact.hooks]]
+type = "command"
+command = 'python3 "$HOME/.codex/hooks/checkpoint_session_hook.py"'
+command_windows = 'python "C:\Users\YOUR_USER\.codex\hooks\checkpoint_session_hook.py"'
+timeout = 10
+statusMessage = "Recording compact boundary"
