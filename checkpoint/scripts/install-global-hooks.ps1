@@ -55,6 +55,16 @@ command_windows = 'python "$targetHookScript"'
 timeout = 10
 statusMessage = "Recording checkpoint session prompt"
 
+[[hooks.PreCompact]]
+matcher = "manual|auto"
+
+[[hooks.PreCompact.hooks]]
+type = "command"
+command = 'python "$targetHookScript"'
+command_windows = 'python "$targetHookScript"'
+timeout = 10
+statusMessage = "Recording pre-compact boundary"
+
 [[hooks.PostCompact]]
 matcher = "manual|auto"
 

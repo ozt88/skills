@@ -24,6 +24,16 @@ command_windows = 'python "C:\Users\YOUR_USER\.codex\hooks\checkpoint_session_ho
 timeout = 10
 statusMessage = "Recording checkpoint session prompt"
 
+[[hooks.PreCompact]]
+matcher = "manual|auto"
+
+[[hooks.PreCompact.hooks]]
+type = "command"
+command = 'python3 "$HOME/.codex/hooks/checkpoint_session_hook.py"'
+command_windows = 'python "C:\Users\YOUR_USER\.codex\hooks\checkpoint_session_hook.py"'
+timeout = 10
+statusMessage = "Recording pre-compact boundary"
+
 [[hooks.PostCompact]]
 matcher = "manual|auto"
 

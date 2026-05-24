@@ -7,7 +7,7 @@ description: Review a long, compacted, or drifting session to decide whether it 
 
 Use this skill to review the current session boundary.
 
-It can be invoked manually when the user notices context drift, or automatically after `PostCompact`.
+It can be invoked manually when the user notices context drift, or when hook-injected context says a `PostCompact` review is pending.
 
 `review-checkpoint` starts the checkpoint lifecycle. It does not save or plan by itself:
 
@@ -21,7 +21,7 @@ Explain whether the session should continue or be closed.
 
 Do not make authoritative graph changes. Do not run `save-checkpoint` automatically.
 
-Hooks may trigger this skill, but hooks must not replace it. Hooks record evidence; this skill reviews the boundary and talks to the user.
+Hooks may request this skill, but hooks must not replace it. Hooks record evidence and may inject next-turn context; this skill reviews the boundary and talks to the user.
 
 ## Review Inputs
 
@@ -43,9 +43,17 @@ When invoked after `PostCompact`:
 2. Summarize the pre-compact request flow from current context and optional logs.
 3. Identify possible drift or branching without treating it as a final verdict.
 4. If session logs exist, compile the just-ended segment into a session-local rollup.
-5. Ask whether to continue or close the session with `save-checkpoint`.
+5. If `state.json` exists, update `reviewed_compact_count` to the compact count covered by the rollup.
+6. Ask whether to continue or close the session with `save-checkpoint`.
 
 Do not call this "completed work" unless the completion is already explicit. Prefer "request flow", "session flow", or "pre-compact flow".
+
+The pending compact review is not complete until the pending state is cleared. Clear it by doing at least one of:
+
+- write a rollup under `.checkpoint/sessions/<session_id>/rollups/*.md`
+- update `.checkpoint/sessions/<session_id>/state.json` so `reviewed_compact_count` is greater than or equal to `compact_count`
+
+If neither happens, the hook should keep injecting `review-checkpoint` context on later prompts.
 
 ## Session-Local Rollup
 
@@ -62,6 +70,7 @@ If `.checkpoint/sessions/<session_id>/` exists, `review-checkpoint` may maintain
 Allowed:
 
 - write a compact boundary rollup
+- update `state.json` `reviewed_compact_count` after the rollup is written
 - archive or rotate active prompt events into a segment file
 - keep the rollup non-authoritative
 
@@ -72,6 +81,24 @@ Forbidden:
 - write graph `DECISIONS.md`
 - mark nodes Done/Blocked/Ready
 - run `save-checkpoint`, `plan-checkpoint`, `next-checkpoint`, or `audit-checkpoint` automatically
+
+### Clearing Pending Review State
+
+When `review-checkpoint` is invoked because hook-injected context says `PostCompact` review is pending:
+
+1. Read `.checkpoint/sessions/<session_id>/state.json`.
+2. Read nearby `events.jsonl` entries around the latest `post_compact`.
+3. Write a rollup such as `rollups/001-post-compact.md`.
+4. Update `state.json`:
+
+```json
+{
+  "reviewed_compact_count": 1,
+  "last_reviewed_at": "<ISO timestamp>"
+}
+```
+
+Set `reviewed_compact_count` to the `compact_count` that the rollup covers. Preserve existing state keys.
 
 ### Rollup Content
 
@@ -111,12 +138,19 @@ SessionStart
 UserPromptSubmit
   -> append prompt hash/len/lead/tail to events.jsonl
 
+PreCompact
+  -> append pre-compact boundary before context is rewritten
+
 PostCompact
   -> append compact event
-  -> return a systemMessage requiring review-checkpoint before continuing
+  -> mark compact review as pending
+
+SessionStart(source=compact) or UserPromptSubmit
+  -> if compact review is still pending
+  -> inject additionalContext requiring review-checkpoint
 ```
 
-`PostCompact` should not ask the user to run `review-checkpoint`; it should trigger the review through the hook channel available in Codex. The review then asks the user whether to continue or save.
+`PreCompact` gives the review a more stable boundary marker before compaction rewrites context. `PostCompact` should not ask the user to run `review-checkpoint`; it should persist pending review state after compaction succeeds. Because Codex does not route `PostCompact` output into model-visible context, the next context-injecting hook must carry the review requirement. The review then asks the user whether to continue or save.
 
 ## Classify The New Request
 

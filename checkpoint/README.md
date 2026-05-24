@@ -17,7 +17,9 @@ The default lifecycle is:
 ```text
 active session
   -> hooks record lightweight session evidence
-  -> PostCompact emits a review-required systemMessage
+  -> PreCompact records the upcoming compact boundary
+  -> PostCompact confirms successful compact and records pending review
+  -> the next SessionStart/UserPromptSubmit injects review-checkpoint context
   -> the active agent runs review-checkpoint before continuing
   -> review-checkpoint reviews context rot or task drift
   -> save-checkpoint captures the current session and closes the active work state
@@ -29,8 +31,9 @@ active session
 In other words:
 
 - hooks record evidence; they do not write checkpoint graphs.
-- `PostCompact` is the automatic review boundary.
-- `PostCompact` cannot directly execute a skill; it returns a `systemMessage` that requires the active agent to run `review-checkpoint`.
+- `PreCompact` records the compact boundary before context is rewritten.
+- `PostCompact` confirms the automatic review boundary after compaction succeeds.
+- `PostCompact` cannot directly execute a skill. Current Codex runtime records PostCompact hook output as hook completion metadata, so the reliable review path is to persist a pending review flag and inject `review-checkpoint` context on the next `SessionStart` or `UserPromptSubmit`.
 - `review-checkpoint` summarizes the compacted segment and asks whether to continue or save.
 - `save-checkpoint` is how a full or risky session is safely ended.
 - `plan-checkpoint` is how unresolved future work is shaped before the next session starts.
@@ -114,7 +117,10 @@ After restart and trust:
 
 - `SessionStart` should initialize `.checkpoint/sessions/<session_id>/session.json`.
 - `UserPromptSubmit` should append prompt evidence to `.checkpoint/sessions/<session_id>/events.jsonl`.
-- `PostCompact` should append a compact event and return a review signal for `review-checkpoint`.
+- `PreCompact` should append a pre-compact boundary event before the conversation is compacted.
+- `PostCompact` should append a compact event and mark compact review as pending.
+- The next `SessionStart` with `source:"compact"` or the next `UserPromptSubmit` should inject `review-checkpoint` instructions through `hookSpecificOutput.additionalContext`.
+- After a real compact, check the follow-up result: whether `review-checkpoint` ran, whether a session-local rollup was created, and whether the session was continued or saved intentionally.
 
 The hook never writes `.checkpoint/graphs/**` and never runs `save-checkpoint` automatically.
 
@@ -162,15 +168,27 @@ SessionStart
 UserPromptSubmit
   -> append hash, length, lead, tail, timestamp
 
+PreCompact
+  -> record compact trigger/count before compaction
+
 PostCompact
   -> record compact trigger/count
-  -> return a systemMessage requiring review-checkpoint before continuing
+  -> mark compact review as pending
+
+SessionStart(source=compact) or UserPromptSubmit
+  -> if compact review is still pending
+  -> inject additionalContext requiring review-checkpoint
 
 review-checkpoint
   -> summarize the just-compacted request flow
   -> write a session-local rollup when possible
   -> explain possible drift or handoff risk
   -> ask whether to continue or run save-checkpoint
+
+After compact, verify both layers:
+
+1. Hook evidence: `events.jsonl` contains `pre_compact` and `post_compact`, and `state.json` counters changed.
+2. Workflow result: the next prompt received injected review context, and the active session either ran `review-checkpoint` and produced a rollup, or recorded why that did not happen.
 ```
 
 Do not store full prompts, full transcripts, full tool outputs, or full diffs. Do not classify topic drift inside hooks. `review-checkpoint` may interpret the flow; hooks should only record evidence.
@@ -244,9 +262,9 @@ hooks/requirements.example.toml
 scripts/install-global-hooks.ps1
 ```
 
-The hook writes session-local evidence and emits a `PostCompact` review signal; it does not execute `save-checkpoint` or write graph state.
+The hook writes session-local evidence and carries a pending compact review signal into the next agent-visible hook context; it does not execute `save-checkpoint` or write graph state.
 
-Current Codex command hooks cannot directly call a skill as an API. The `PostCompact` hook records the compact event and returns a `systemMessage` instructing the active agent to invoke `review-checkpoint` before continuing.
+Current Codex command hooks cannot directly call a skill as an API. The `PreCompact` hook records an early boundary before context is rewritten; the `PostCompact` hook confirms compact success and stores pending review metadata. The next `SessionStart` or `UserPromptSubmit` hook injects agent-visible `review-checkpoint` context before normal work continues.
 
 ## File Roles
 
@@ -283,7 +301,7 @@ Each node should contain enough context to execute that unit, but not the entire
 
 Session boundary review.
 
-It is required after `PostCompact` and can also be called manually. The hook supplies the requirement through `systemMessage`; the active agent performs the skill invocation. It reviews compacted, long, or drifting sessions and explains whether continuing may cause context loss or context pollution. It should only offer:
+It is required after `PostCompact` and can also be called manually. The hook supplies the requirement through pending compact review metadata and next-turn `additionalContext`; the active agent performs the skill invocation. It reviews compacted, long, or drifting sessions and explains whether continuing may cause context loss or context pollution. It should only offer:
 
 - continue in the current session
 - save current work with `save-checkpoint`
