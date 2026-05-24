@@ -1,28 +1,29 @@
-# References index
+# References Index
 
-Routing card. Read this first when you need depth beyond SKILL.md, then read **only** the file that matches.
+Read this file first for every `/visualize` run, then read `patterns.md`, then read exactly one matching example file.
 
-## Pick the file
+## Routing
 
-| You need… | Read |
+| Need | Read next |
 | --- | --- |
-| A category-specific approach (planning doc, code review, diagram, report, editor, …) | [`patterns.md`](./patterns.md) |
-| The real implementation of a specific technique | `examples/<N>-*.html` |
+| Choose a treatment for a source document | `patterns.md` |
+| Implement a specific visual style or interaction | one `examples/<N>-*.html` file selected from `patterns.md` |
 
-## Common principles (always apply)
+## Always Apply
 
-1. **Hierarchical info**: Meta → TL;DR → body → appendix.
-2. **Color-coded badges**: Compress state into small chips (Blocking / SEV-2 / +/− …).
-3. **Anchors + jump links**: TOCs and `file:line` references shorten long docs.
-4. **Copy/export actions**: "Copy markdown / diff / JSON / SVG" buttons make output portable.
-5. **CSS-variable tokens**: One 5-color palette; dark mode through the same variables.
+1. Start with source structure: metadata, summary, body, appendix.
+2. Compress state with badges and compact tables.
+3. Use navigation for multi-section sources: TOC, anchors, tabs, or search.
+4. Include copy/export actions only when the source content benefits from reuse.
+5. Keep palette and dark mode on CSS variables.
 
-## Example index (by category)
+## Example Families
 
-- **Planning**: `examples/01-exploration-code-approaches.html`, `02-exploration-visual-designs.html`, `16-implementation-plan.html`
-- **Code review**: `examples/03-code-review-pr.html`, `04-code-understanding.html`, `17-pr-writeup.html`
-- **Design system**: `examples/05-design-system.html`, `06-component-variants.html`
-- **Prototyping**: `examples/07-prototype-animation.html`, `08-prototype-interaction.html`
-- **Diagrams**: `examples/10-svg-illustrations.html`, `13-flowchart-diagram.html`
-- **Reports & decks**: `examples/09-slide-deck.html`, `11-status-report.html`, `12-incident-report.html`, `14-research-feature-explainer.html`, `15-research-concept-explainer.html`
-- **Custom editors**: `examples/18-editor-triage-board.html`, `19-editor-feature-flags.html`, `20-editor-prompt-tuner.html`
+- Planning: `01`, `02`, `16`
+- Code review: `03`, `04`, `17`
+- Design system: `05`, `06`
+- Prototyping: `07`, `08`
+- Diagrams: `10`, `13`
+- Reports and explainers: `11`, `12`, `14`, `15`
+- Slide-like treatment for existing source docs: `09`
+- Custom editors: `18`, `19`, `20`

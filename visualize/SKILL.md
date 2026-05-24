@@ -1,157 +1,100 @@
 ---
 name: visualize
-description: Render input content or a markdown file into a single self-contained HTML file viewable in VS Code Live Preview. Invoked explicitly by the user via /visualize. If an argument is provided, visualize it directly. If no argument, collect candidates (recent .md files, the last assistant markdown block) and ask the user which one to visualize. Output goes to `.viz/<name>.html`. Do NOT use for CSV/JSON charts, slide decks, image generation, or modifying the source markdown.
+description: Render markdown or supplied text into a single self-contained HTML file viewable in VS Code Live Preview. Invoked explicitly via /visualize. If an argument is provided, visualize it. If no argument is provided, collect candidates and ask the user to choose. Output goes to `.viz/<name>.html`. Do not use as a general CSV/JSON charting tool, slide-deck generator, image generator, or source markdown editor.
 ---
 
 # visualize
 
-Don't merely convert markdown. Produce HTML that uses density, interactivity, spatial layout, and navigation so the reader grasps the work at a glance.
+Create an HTML view that helps the reader understand the source faster than a plain markdown render. Prefer dense, navigable, interactive structure over decorative sections.
 
-## Core principles
+## Core Principles
 
-- **Density**: tables instead of lists, SVG diagrams instead of paragraphs, badges instead of plain text.
-- **Interactivity**: collapsibles, filters, sorting, copy buttons, toggles, sliders.
-- **Spatial layout**: grids, sidebars, cards — more per screen.
-- **Navigation**: TOC, anchors, search for large documents.
+- **Reference first**: choose and read a local reference example before authoring HTML.
+- **Density**: use tables, badges, diagrams, grouped panels, and compact summaries where they carry information better than prose.
+- **Interactivity**: use search, filters, collapsibles, copy buttons, toggles, or small simulations when they clarify the source.
+- **Navigation**: include anchors, TOC, jump links, or section tabs for multi-section documents.
+- **Restraint**: do not pad small sources with unused tabs, fake dashboards, decorative diagrams, or oversized layouts.
 
-Avoid: literal markdown re-renders, static read-only pages, prose where a table would carry the data, and padding simple content with decorative sections it doesn't earn.
+## Output Language
 
-## Output language
+UI text must match the user's current conversation language. Set `<html lang="...">` to the matching BCP-47 code, such as `ko`, `en`, or `ja`. Keep code blocks, paths, commands, technical identifiers, and proper nouns in their original form.
 
-UI text (labels, statuses, captions, prompts, buttons) must match the **user's current conversation language**. Detect from the user's recent messages, set `<html lang="...">` to the matching BCP-47 code (e.g. `ko`, `en`, `ja`), and translate every UI string. Keep code blocks, technical terms, file names, and proper nouns in their original form.
+## Step 1: Resolve The Source
 
----
+**Argument given**: use it. If it is a path, read that file. If it is raw markdown or multi-line structured text, save a temporary source as `.viz/_input.md` and visualize that. If the path/name is ambiguous, ask which source to use.
 
-## Step 1: Resolve the source
+**No argument**: never auto-pick. Gather up to 3-5 candidates in this order:
 
-**Argument given** → use it. If it's a path, read that file. If it's raw markdown (multi-line with headings/checkboxes), save to `.viz/_input.md` and use that. If the file name is ambiguous (no path, multiple matches), ask which.
+1. `.md` files the assistant wrote or edited this turn.
+2. A long markdown block in the previous assistant message.
+3. Recently modified project `.md` files from `git diff --name-only HEAD` or filesystem timestamps.
 
-**No argument** → never auto-pick. Gather up to 3–5 candidates in this priority order:
+Ask the user to choose. If no candidates exist, ask what to visualize.
 
-1. `.md` files Claude wrote or edited this turn.
-2. A long markdown block (>30 lines, or with headings/checkboxes) in the previous assistant message.
-3. Recently modified project `.md` files (`find` or `git diff --name-only HEAD`).
+Exception: if the source is under 5 lines and has no headings or structure, warn that there is little to visualize and ask for confirmation.
 
-Then ask the user to choose, translated to their language. Example shape:
+## Step 2: Select A Reference Treatment
 
-> Choose what to visualize:
-> 1. `PLAN.md` — written this turn
-> 2. `handoff.md` — modified 5 minutes ago
-> 3. Last assistant markdown block (52 lines)
-> 4. Specify a different file or content
+Before writing HTML, always read local references in this order:
 
-If zero candidates exist: ask what to visualize.
+1. `references/INDEX.md`
+2. `references/patterns.md`
+3. Exactly one best-matching `references/examples/<N>-*.html`
 
----
+Do not skip this for small documents. If the source is small, choose the closest lightweight example and simplify from it.
 
-## Step 2: Write the HTML
+The selected example is the primary visual source for palette, typography, spacing, page shell, navigation, component style, and interaction style. Adapt the content and layout to the source, but do not invent an unrelated aesthetic.
 
-### Authoring rules
+When using example CSS, preserve its design intent while normalizing hardcoded colors into CSS variables where needed. Current skill rules override example implementation details when they conflict.
 
-- **Single file**. Inline CSS and JS. External CDN libs (Mermaid, D3) only when a diagram genuinely needs them.
-- **Dark mode**. Every color must go through a CSS variable — no hardcoded hex values outside `:root`. Define all surface, text, and accent colors in `:root`, then re-define them inside `@media (prefers-color-scheme: dark) { :root { … } }`. This two-block pattern is mandatory:
+## Step 3: Choose The Treatment
 
-  ```css
-  :root {
-    --bg:      #FAF9F5;
-    --surface: #ffffff;
-    --text:    #3D3D3A;
-    --heading: #141413;
-    --border:  #D1CFC5;
-    --muted:   #87867F;
-    --accent:  #D97757;
-    /* semantic state tokens */
-    --yes-bg: #F3FAF0; --yes-border: #788C5D;
-    --no-bg:  #FEF5F3; --no-border:  #C0392B; --no-text: #C0392B;
-    /* badge tokens — one set per hue */
-    --badge-blue-bg: #EEF3FA; --badge-blue-fg: #2471A3; --badge-blue-bd: #BDD0F0;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg:      #1A1A17;
-      --surface: #272724;
-      --text:    #C0BEB4;
-      --heading: #F0EEE6;
-      --border:  #3A3A36;
-      --muted:   #87867F;
-      --accent:  #D97757;
-      --yes-bg: #162016; --yes-border: #4A6A3A;
-      --no-bg:  #281414; --no-border:  #8A2A2A; --no-text: #E07070;
-      --badge-blue-bg: #141C28; --badge-blue-fg: #7AABDB; --badge-blue-bd: #2A4060;
-    }
-    body { background: var(--bg); }
-  }
-  ```
+Choose treatments from the source shape and the selected reference:
 
-  **Three rules that eliminate mixed-mode bugs:**
-  1. CSS classes use only `var(--…)` — never `background: #fff`, `color: #333`, etc.
-  2. SVG `fill`/`stroke` attributes use `var(--…)` or `currentColor` — never hex literals.
-  3. JavaScript that sets `element.style.color` or `element.style.background` must use `var(--…)` strings, or toggle a CSS class instead.
-
-- **Localized UI** per the rule above.
-- **Responsive**. Must not break on mobile widths.
-
-### Pick a treatment
-
-| Content shape | Treatment |
+| Source shape | Typical treatment |
 | --- | --- |
-| Many comparable attributes | Sortable / filterable table |
-| Ordered steps or phases | Vertical timeline, progress bar |
-| Items grouped by state | Kanban-style columns (visual grouping) |
-| Dependencies or connections | SVG diagram or Mermaid |
-| Prose-heavy long document | Sidebar TOC + body + search box |
-| Checklists | Progress bar + done/todo badges |
-| Code or JSON | Syntax highlight + copy button |
-| Parameters or options | Sliders / toggles for live tweaking |
-| Categorized items | Tabs or accordion |
-| Code review | Annotated diff, severity tags, file-by-file tour |
+| Comparable attributes | Sortable/filterable table |
+| Ordered phases or chronology | Timeline + progress badges |
+| Items grouped by state | Kanban columns or grouped panels |
+| Dependencies or flows | SVG or Mermaid diagram |
+| Long prose document | Sidebar TOC + searchable body |
+| Checklist | Progress summary + done/todo badges |
+| Code, config, or JSON excerpt | Syntax block + copy button |
+| Options or parameters | Toggles, sliders, or live preview |
+| Code review or PR writeup | Severity tags + file-by-file tour |
 
-Mix treatments freely. If a better representation comes to mind, use it.
+Use one clear treatment for small sources, 2-3 treatments for medium sources, and a richer navigable view only for large or multi-section sources.
 
-### Size discipline
+Slide-like navigation is allowed only as a treatment for an existing source document; do not create a standalone presentation deck from scratch.
 
-Output HTML should scale with source depth, not max out by default:
+## Step 4: Author The HTML
 
-| Source markdown | Target HTML size | Typical treatment |
-| --- | --- | --- |
-| Under ~2 KB | Under ~10 KB | One simple treatment, no extra tabs / diagrams |
-| ~2–10 KB | ~10–25 KB | Mix 2–3 treatments |
-| Over ~10 KB or multi-section work | Up to ~35 KB | Full toolkit (tabs, search, SVG, etc.) |
+- Produce one self-contained `.html` file with inline CSS and JS.
+- Use external CDN libraries only when a diagram genuinely needs them.
+- Define all colors as CSS variables in `:root`; redefine the same variables in `@media (prefers-color-scheme: dark) { :root { ... } }`.
+- Outside `:root`, use `var(...)` or `currentColor` for colors. Avoid hardcoded hex colors in CSS rules, SVG attributes, and JavaScript style assignments.
+- Make the view responsive. Text and controls must not overlap on mobile widths.
+- Localize all UI labels, buttons, captions, statuses, and prompts.
+- Keep source content faithful. Do not invent facts, statuses, metrics, file references, or conclusions.
 
-If you exceed the band for the source size, briefly note it in the report so the user can ask for a lighter version (e.g. "HTML is 34 KB — try `/visualize ... as outline` for a slimmer one"). **Don't pad with decorative sections if the content doesn't earn them.**
+## Step 5: Save The File
 
-### When you need more depth
+Create `.viz/` if needed using the native filesystem tools available in the current environment. Write to `.viz/<basename>.html`, for example `PLAN.md` -> `.viz/PLAN.html`; inline input -> `.viz/_input.html`.
 
-1. Read `references/INDEX.md` to find the best-matching example category.
-2. Read `references/patterns.md` to identify which `examples/<N>-*.html` file fits the content shape.
-3. **Read that example file directly** — it is the canonical source for palette, typography, layout, and component style. Copy the `:root` variables, body, page, nav, h1, h2, and p CSS **verbatim** from the example. Do not approximate or round any values.
-4. Only open `references/snippets.md` for a specific micro-component (e.g. a toggle switch or copy button) that the example file doesn't already contain. Never use snippets as a substitute for the example's overall aesthetic.
+If the project has a `.gitignore`, add `.viz/` only when it is missing. Do not otherwise modify the source markdown.
 
-Don't pre-load anything beyond INDEX.md until needed.
+## Step 6: Report
 
----
+Reply in 1-2 lines in the user's language. Include:
 
-## Step 3: Save the file
+- output path
+- selected reference example
+- chosen treatment
 
-```bash
-mkdir -p .viz
-grep -q '\.viz' .gitignore 2>/dev/null || ([ -d .git ] && echo '.viz/' >> .gitignore)
-[ -f .viz/.first-run-done ] || touch .viz/.first-run-done
-```
-
-Write to `.viz/<basename>.html` (e.g. `PLAN.md` → `.viz/PLAN.html`; inline input → `.viz/_input.html`).
-
----
-
-## Step 4: Report
-
-1–2 lines in the user's language. Include the output path and the treatment chosen (e.g. "table + timeline", "searchable card grid"). If the HTML exceeded the size band for the source, append a one-line note offering a slimmer rerun.
-**First run only** (when the `touch` above just created the marker): add one line — "Right-click the HTML in VS Code and pick **Show Preview** for auto-refresh."
-
----
+If the HTML is intentionally large for the source size, mention that a slimmer rerun is possible. On first use only, add: `Right-click the HTML in VS Code and pick Show Preview for auto-refresh.`
 
 ## Exceptions
 
-- **Source missing** → stop and ask.
-- **Under 5 lines, no headings** → warn that there's little to visualize and confirm.
-- **Re-render request** → keep the same source, apply a different treatment.
+- **Source missing**: stop and ask.
+- **Re-render request**: keep the same source and choose a different treatment/reference.
+- **Unsupported request**: if the user wants charts from raw CSV/JSON, image generation, or a standalone slide deck, explain that this skill is not the right tool unless they are visualizing an existing markdown/text source.
