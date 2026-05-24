@@ -74,6 +74,29 @@ Do not add candidates for merely imagined future work. If no work was started, u
 
 `plan-checkpoint` may later read these candidates and create new nodes from them. `save-checkpoint` must not create those nodes.
 
+## Storage Home Guard
+
+Checkpoint graph storage must be durable. Do not save authoritative checkpoint state inside transient paths, including:
+
+- `.tmp/`
+- `tmp/`
+- throwaway clones
+- downloaded archives
+- temporary worktrees created only to publish or inspect another repository
+
+If the current session edited files in a transient clone, keep that clone as evidence or working repo context only. Save the checkpoint graph under a durable owner:
+
+- repo-local storage only when the repo path itself is durable
+- global storage for Codex skills, global hooks, user-level config, cross-repo work, or temporary repo clones
+
+Global storage:
+
+```text
+C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\
+```
+
+If an existing checkpoint graph is found under a transient path, do not continue treating it as authoritative. Migrate or recreate it under durable storage before updating state.
+
 ## Core Contract
 
 Do not invent a new graph structure until you have inventoried the session outputs.
@@ -126,6 +149,7 @@ Exclude:
 5. Build or update checkpoint graph:
    - repo work: `<repo>/.checkpoint/graphs/<slug>/`
    - global work: `C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\`
+   - transient `.tmp` paths are not valid graph homes
 6. Write:
    - `index.md` for routing and canonical node state
    - `DECISIONS.md` for checkpoint-local ADRs, entrypoints, rejected directions, and completed-do-not-reopen decisions

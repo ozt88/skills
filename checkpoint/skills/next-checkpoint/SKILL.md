@@ -17,27 +17,49 @@ save-checkpoint -> plan-checkpoint when needed -> clear/new session -> next-chec
 
 Do not load the old handoff or full prior conversation by default. The graph is the resume surface.
 
+## Storage Home Guard
+
+Do not activate checkpoint graphs from transient storage as authoritative state.
+
+Transient storage includes:
+
+- `.tmp/`
+- `tmp/`
+- throwaway clones
+- downloaded archives
+- temporary worktrees created only to publish or inspect another repository
+
+If a matching graph is found under a transient path:
+
+1. report that the graph home is not durable
+2. look for a durable copy under `C:\Users\DELL\.codex\.checkpoint\graphs\` or a durable repo-local `.checkpoint/graphs/`
+3. activate the durable copy if one exists
+4. if no durable copy exists, stop and ask whether to migrate it before continuing
+
+Use transient clone paths only as working repo context inside a selected node, not as the graph home.
+
 ## Workflow
 
 1. Locate checkpoint graph.
 2. Read `index.md` first.
-3. Verify the newest user request against checkpoint status.
-4. Exclude:
+3. Verify the graph home is durable before activating it.
+4. Verify the newest user request against checkpoint status.
+5. Exclude:
    - Done nodes
    - Blocked nodes with unmet dependencies
    - Parked nodes whose trigger is not met
    - Superseded or dropped nodes
-5. Select next node:
+6. Select next node:
    - use `Recommended Next` if valid and user asked for it
    - otherwise rank ready nodes by request match, unlock value, context cost, risk reduction, and freshness
-6. If multiple plausible nodes remain, ask the user to choose.
-7. Read only:
+7. If multiple plausible nodes remain, ask the user to choose.
+8. Read only:
    - relevant `index.md` status
    - relevant `DECISIONS.md` CP-ADR entries
    - selected node file
    - direct dependency output contracts if required
-8. Surface the selected node context to the active session.
-9. Update state if selection/progress changes.
+9. Surface the selected node context to the active session.
+10. Update state if selection/progress changes.
 
 ## Candidate Display
 
@@ -60,6 +82,7 @@ Before acting:
 
 - prefer the newest user message over saved state
 - verify relevant files and artifacts exist
+- reject transient graph homes unless the user explicitly asks to inspect that stale copy
 - stop and explain conflicts between checkpoint state and local state
 
 ## State Update Gate

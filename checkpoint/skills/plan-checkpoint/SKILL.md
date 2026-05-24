@@ -23,6 +23,31 @@ Create the smallest graph that makes future execution safe.
 
 Do not summarize a whole project. Do not duplicate existing source-of-truth documents.
 
+## Storage Home Guard
+
+Checkpoint graph storage must be durable. Do not create or update authoritative checkpoint graphs inside transient paths, including:
+
+- `.tmp/`
+- `tmp/`
+- throwaway clones
+- downloaded archives
+- temporary worktrees created only to publish or inspect another repository
+
+If the current work uses a transient clone, separate:
+
+- working repo: the clone where files are inspected or edited
+- checkpoint graph home: a durable checkpoint location
+
+Use global checkpoint storage for Codex skills, global hooks, user-level config, or cross-repo work:
+
+```text
+C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\
+```
+
+Use repo-local checkpoint storage only when the repository path itself is durable and is the long-term owner of the checkpoint.
+
+Before writing graph files, state the chosen graph home in the plan proposal. If the only available repo path is transient, ask the user to approve global storage or provide a durable repo path.
+
 ## Interactive Planning Gate
 
 `plan-checkpoint` is interactive by default.
@@ -74,6 +99,7 @@ If the user explicitly requests auto mode, such as `auto`, `비대화형`, or `�
 10. Choose storage:
    - repo work: `<repo>/.checkpoint/graphs/<slug>/`
    - global work: `C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\`
+   - never choose a transient `.tmp` path as the graph home
 11. Write:
    - `index.md`
    - `DECISIONS.md`
