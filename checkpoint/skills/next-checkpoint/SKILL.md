@@ -32,9 +32,11 @@ Transient storage includes:
 If a matching graph is found under a transient path:
 
 1. report that the graph home is not durable
-2. look for a durable copy under `C:\Users\DELL\.codex\.checkpoint\graphs\` or a durable repo-local `.checkpoint/graphs/`
-3. activate the durable copy if one exists
-4. if no durable copy exists, stop and ask whether to migrate it before continuing
+2. first look for a durable copy under the current project `.checkpoint/graphs/`
+3. then look under a durable repo-local `.checkpoint/graphs/`
+4. use `C:\Users\DELL\.codex\.checkpoint\graphs\` only for project-less or explicitly global checkpoint state
+5. activate the durable copy if one exists
+6. if no durable copy exists, stop and ask whether to migrate it before continuing
 
 Use transient clone paths only as working repo context inside a selected node, not as the graph home.
 

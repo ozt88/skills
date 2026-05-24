@@ -86,8 +86,15 @@ Checkpoint graph storage must be durable. Do not save authoritative checkpoint s
 
 If the current session edited files in a transient clone, keep that clone as evidence or working repo context only. Save the checkpoint graph under a durable owner:
 
+- current project storage when the user is working inside a durable project workspace
 - repo-local storage only when the repo path itself is durable
-- global storage for Codex skills, global hooks, user-level config, cross-repo work, or temporary repo clones
+- global storage only when there is no durable project workspace or the user explicitly wants user-level global checkpoint state
+
+Current project storage:
+
+```text
+<current-project>/.checkpoint/graphs/<slug>/
+```
 
 Global storage:
 
@@ -147,8 +154,9 @@ Exclude:
    - preserve canonical sources as links/paths
    - preserve decisions as checkpoint-local ADRs in `DECISIONS.md`
 5. Build or update checkpoint graph:
-   - repo work: `<repo>/.checkpoint/graphs/<slug>/`
-   - global work: `C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\`
+   - current project work: `<current-project>/.checkpoint/graphs/<slug>/`
+   - durable repo-owned work: `<repo>/.checkpoint/graphs/<slug>/`
+   - global work only when project-less or explicitly global: `C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\`
    - transient `.tmp` paths are not valid graph homes
 6. Write:
    - `index.md` for routing and canonical node state

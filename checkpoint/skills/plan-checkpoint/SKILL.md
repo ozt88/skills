@@ -38,7 +38,13 @@ If the current work uses a transient clone, separate:
 - working repo: the clone where files are inspected or edited
 - checkpoint graph home: a durable checkpoint location
 
-Use global checkpoint storage for Codex skills, global hooks, user-level config, or cross-repo work:
+Prefer the current project's checkpoint storage when the user is working inside a durable project workspace:
+
+```text
+<current-project>/.checkpoint/graphs/<slug>/
+```
+
+Use global checkpoint storage only when there is no durable project workspace or the user explicitly wants user-level global checkpoint state:
 
 ```text
 C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\
@@ -97,8 +103,9 @@ If the user explicitly requests auto mode, such as `auto`, `비대화형`, or `�
 8. Add dependencies and edge meanings.
 9. Ask only for decisions that affect node scope, ordering, parked work, or storage.
 10. Choose storage:
-   - repo work: `<repo>/.checkpoint/graphs/<slug>/`
-   - global work: `C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\`
+   - current project work: `<current-project>/.checkpoint/graphs/<slug>/`
+   - durable repo-owned work: `<repo>/.checkpoint/graphs/<slug>/`
+   - global work only when project-less or explicitly global: `C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\`
    - never choose a transient `.tmp` path as the graph home
 11. Write:
    - `index.md`
