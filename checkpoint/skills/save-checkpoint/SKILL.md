@@ -17,6 +17,63 @@ active session -> save-checkpoint -> plan-checkpoint when needed -> clear/new se
 
 After saving, do not keep expanding the same bloated session unless the user explicitly chooses to continue.
 
+## Strict Boundary
+
+`save-checkpoint` captures already-performed work. It must not design new future execution nodes just because a next action is visible.
+
+Allowed:
+
+- finalize or update nodes for work that was actually performed
+- mark the active node `Done`, `In Progress`, `Blocked`, `Dropped`, `Superseded`, or `Split`
+- expose node candidates for work that was started but is not yet ready to become a formal node
+- record unresolved future work as `Next action`, `Remaining risks`, `Blockers`, or a `plan-checkpoint needed` note
+- unlock existing nodes whose dependencies are now satisfied
+
+Forbidden:
+
+- create new nodes for work that has not started
+- convert every remaining risk into a future node
+- set `Recommended Next` to a newly invented future node
+- treat `save-checkpoint` as a substitute for `plan-checkpoint`
+
+If future work needs node design, write a small handoff note:
+
+```text
+plan-checkpoint needed: <future work that requires graph design>
+```
+
+Then stop. Do not create that future graph inside `save-checkpoint`.
+
+## Candidate Exposure Inside Existing Nodes
+
+Some work is not future-only. A long session may start several threads before they are complete enough to become clean checkpoint nodes.
+
+`save-checkpoint` must expose these candidates inside an existing node instead of hiding them.
+
+Use `Node Candidates` inside the active node's `Progress Snapshot` or `Output Contract` when work is:
+
+- actually started in the saved session
+- mentioned repeatedly or materially changed by the session
+- blocked, partial, or ambiguous
+- likely to become a node if the user later runs `plan-checkpoint`
+- too under-specified to safely mark as `Ready`, `Done`, or `In Progress`
+
+Candidate entries are not canonical node state and must not appear as rows in graph `index.md`. They are a shortlist for future `plan-checkpoint`.
+
+Format:
+
+```md
+### Node Candidates
+- candidate: <short slug>
+  evidence: <what was actually touched or decided>
+  why not a node yet: <missing scope, unclear output, user decision needed, or no work performed>
+  suggested next step: continue | ask user | plan-checkpoint
+```
+
+Do not add candidates for merely imagined future work. If no work was started, use `plan-checkpoint needed` instead.
+
+`plan-checkpoint` may later read these candidates and create new nodes from them. `save-checkpoint` must not create those nodes.
+
 ## Core Contract
 
 Do not invent a new graph structure until you have inventoried the session outputs.
@@ -32,6 +89,7 @@ Capture:
 - pending work
 - validation already run
 - next actions
+- node candidates for partial work
 - optional session-local rollups from `.checkpoint/sessions/<session_id>/`
 
 Exclude:
@@ -41,6 +99,8 @@ Exclude:
 - stale brainstorming
 - completed details that do not affect future work
 - duplicated source-of-truth content
+
+`pending work` and `next actions` are captured as handoff facts, not automatically as new checkpoint nodes.
 
 ## Workflow
 
@@ -57,6 +117,7 @@ Exclude:
    - decisions not to reopen
    - rejected tool/structure directions
    - unresolved assumptions or blockers
+   - node candidates created by started-but-unfinished work
    - session-local rollups if present
 4. Map source-of-truth:
    - link existing entrypoints instead of copying them
@@ -73,13 +134,16 @@ Exclude:
    - update `index.md` before final response
    - mark complete, ready, blocked, parked, superseded, or dropped nodes
    - write a progress snapshot when work is not complete
+   - do not add future-only nodes unless they represent work already started in this session
 8. Self-audit gate:
    - run the `audit-checkpoint` checklist against the updated graph
    - fix High and Medium issues introduced by this save
    - report remaining Low issues if they are intentionally deferred
 9. End-of-session handoff:
    - state whether `plan-checkpoint` is needed before clearing
-   - if next executable nodes are already clear, say `plan-checkpoint` may be skipped
+   - if existing next executable nodes are already clear, say `plan-checkpoint` may be skipped
+   - if the next work is only a future intention and no existing node represents it, say `plan-checkpoint` is needed instead of creating the node
+   - if started-but-unfinished work exists but is not ready to formalize, list it inside the relevant existing node under `Node Candidates`
    - tell the user the next fresh session should use `next-checkpoint`
 
 ## Existing Checkpoint Update
@@ -100,6 +164,8 @@ If this session started from an existing checkpoint node, `save-checkpoint` also
 5. Write an `Output Contract` when the node is `Done`.
 6. Write a `Progress Snapshot` when the node is not `Done`.
 7. Unlock newly ready nodes whose dependencies are now done.
+
+Do not add brand-new future nodes during this update unless the current session already performed partial work for that node and needs a progress snapshot.
 
 ### Output Contract
 
@@ -144,6 +210,19 @@ Bad:
 - `misc followup`
 
 Do not create nodes for completed work unless they are needed as dependencies. Put completed decisions in `DECISIONS.md`.
+
+Do not create nodes for unstarted future work in `save-checkpoint`. Put that future work in:
+
+- `Remaining risks`
+- `Next action`
+- `Blockers`
+- `plan-checkpoint needed`
+
+Use `plan-checkpoint` later if the future work should become a graph.
+
+For started-but-unfinished work, do not hide it. Put it inside an existing node's `Node Candidates` section unless it is already clear enough to become an `In Progress` node with a `Progress Snapshot`.
+
+`Node Candidates` is an input to future `plan-checkpoint`, not a node creation mechanism inside `save-checkpoint`.
 
 ## DECISIONS.md Format
 
@@ -200,4 +279,8 @@ Required checks:
 - Ready and Blocked statuses match dependencies.
 - Done nodes have an `Output Contract`.
 - In Progress nodes have a `Progress Snapshot`.
+- Newly added nodes must correspond to work already performed or partially performed in the saved session.
+- Future-only work must be recorded as a handoff fact, not as a node.
+- Started-but-unfinished work that was not made a node must be visible inside an existing node's `Node Candidates` section or `Progress Snapshot`.
+- `Node Candidates` must not create rows in graph `index.md`.
 - High and Medium issues introduced by this save are fixed before final response.

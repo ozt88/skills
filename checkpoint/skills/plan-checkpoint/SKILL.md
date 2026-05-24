@@ -23,24 +23,64 @@ Create the smallest graph that makes future execution safe.
 
 Do not summarize a whole project. Do not duplicate existing source-of-truth documents.
 
+## Interactive Planning Gate
+
+`plan-checkpoint` is interactive by default.
+
+Before writing or updating checkpoint graph files, present a plan proposal and get user approval.
+
+When reading `Node Candidates` from an existing checkpoint node:
+
+1. list the candidates with their evidence
+2. explain whether each candidate should be promoted, merged, parked, dropped, or left inside the source node
+3. recommend the smallest graph that makes future execution safe
+4. wait for explicit user approval before writing graph files
+
+Do not write or update:
+
+- `index.md`
+- `DECISIONS.md`
+- `nodes/*.md`
+
+until the user approves the proposed structure.
+
+Explicit approval means the user confirms the proposed structure or gives clear subset/order instructions, such as:
+
+- `승인`
+- `이 구조로 진행`
+- `N3만 만들고 N4는 보류`
+- `두 후보를 하나로 합쳐`
+
+Calling `plan-checkpoint` by itself is not approval to write.
+
+If the user explicitly requests auto mode, such as `auto`, `비대화형`, or `추천안대로 바로 작성`, graph writes are allowed without an approval turn. In that case, state in the final response that auto mode was used.
+
 ## Workflow
 
 1. Define the future work objective.
 2. Identify canonical entrypoints and files future sessions should read.
 3. Identify what must not be read by default.
-4. Split the work into minimal resume nodes.
-5. Add dependencies and edge meanings.
-6. Ask only for decisions that affect node scope, ordering, parked work, or storage.
-7. Choose storage:
+4. If existing `Node Candidates` are present, prepare a candidate review:
+   - promote
+   - merge
+   - park
+   - drop
+   - leave as candidate
+5. Propose the minimal node split, dependencies, edge meanings, and storage target.
+6. Stop for user approval unless auto mode was explicitly requested.
+7. After approval, split the work into minimal resume nodes.
+8. Add dependencies and edge meanings.
+9. Ask only for decisions that affect node scope, ordering, parked work, or storage.
+10. Choose storage:
    - repo work: `<repo>/.checkpoint/graphs/<slug>/`
    - global work: `C:\Users\DELL\.codex\.checkpoint\graphs\<slug>\`
-8. Write:
+11. Write:
    - `index.md`
    - `DECISIONS.md`
    - `nodes/*.md`
-9. Run the state update gate before final response.
-10. Run the self-audit gate before final response.
-11. Make the next-session entrypoint explicit:
+12. Run the state update gate before final response.
+13. Run the self-audit gate before final response.
+14. Make the next-session entrypoint explicit:
    - identify the recommended first node
    - state what a fresh session should load through `next-checkpoint`
    - keep restart instructions small enough that the graph, not the chat, carries the context
@@ -114,4 +154,5 @@ Required checks:
 - no dependency cycles exist.
 - Ready and Blocked statuses match dependencies.
 - node output contracts are clear enough for future execution.
+- if nodes were created from `Node Candidates`, the graph records explicit user approval or auto mode.
 - High and Medium issues introduced by this plan are fixed before final response.
