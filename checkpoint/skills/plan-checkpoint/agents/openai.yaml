@@ -1,0 +1,4 @@
+interface:
+  display_name: "Plan Checkpoint"
+  short_description: "Plan a future-work checkpoint graph."
+  default_prompt: "Create a checkpoint graph for future work, with minimal resume nodes, dependencies, entrypoints, blocked/parked state, and completion conditions."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Review Checkpoint"
+  short_description: "Review a session boundary and decide whether to continue or save."
+  default_prompt: "Review the current session flow, explain any compact/context drift risk, and ask whether to continue or close the session with save-checkpoint."

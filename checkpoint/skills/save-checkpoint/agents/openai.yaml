@@ -1,0 +1,4 @@
+interface:
+  display_name: "Save Checkpoint"
+  short_description: "Save current session work into a checkpoint graph."
+  default_prompt: "Save the actual work products, decisions, changed files, blockers, and next actions from this session into a resumable checkpoint graph."

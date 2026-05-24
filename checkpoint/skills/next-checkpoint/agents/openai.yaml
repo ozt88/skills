@@ -1,0 +1,4 @@
+interface:
+  display_name: "Next Checkpoint"
+  short_description: "Pick and load the next checkpoint node."
+  default_prompt: "Find the next executable node from an existing checkpoint graph, load only the necessary context, and update checkpoint state if selection changes."

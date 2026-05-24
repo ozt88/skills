@@ -1,0 +1,4 @@
+interface:
+  display_name: "Audit Checkpoint"
+  short_description: "Audit checkpoint validity and stale state."
+  default_prompt: "Audit a checkpoint artifact for stale state, broken dependencies, missing node files, oversized index content, and conflicts with current files or user intent."
