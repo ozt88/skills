@@ -23,6 +23,22 @@ Create the smallest graph that makes future execution safe.
 
 Do not summarize a whole project. Do not duplicate existing source-of-truth documents.
 
+## Design Pressure Gate
+
+Before proposing a node split, pressure-test assumptions that materially affect graph shape. This is built into `plan-checkpoint`; do not invoke or depend on `grill-me`.
+
+Ask one concise question at a time only when the answer cannot be discovered from local files and would change node scope, ordering, status, read boundary, storage, or approval requirements. Otherwise inspect the local context instead of asking.
+
+Required checks:
+
+- Objective boundary: what concrete output means this future work is done, and what is out of scope?
+- Node granularity: each node should be about one focused future work session. Merge micro-steps that are merely phases of the same session; split only for distinct session goals, dependencies, approval gates, or blockers.
+- State and read-boundary changes: identify any operation that changes what later nodes may read, trust, replace, or avoid. Capture that as a graph decision before node design.
+- Approval or intent dependencies: ask before encoding author, product, or user-intent decisions that are not already clear.
+- Resume safety: the recommended next node must be executable from graph files without relying on chat memory.
+
+Stop pressure questions when the remaining uncertainty would not change the graph shape. Include any remaining assumptions in the plan proposal.
+
 ## Storage Home Confirmation Gate
 
 Checkpoint graphs live under the current project root:
@@ -82,29 +98,30 @@ If the user explicitly requests auto mode, such as `auto`, `비대화형`, or `�
 ## Workflow
 
 1. Define the future work objective.
-2. Identify canonical entrypoints and files future sessions should read.
-3. Identify what must not be read by default.
-4. If existing `Node Candidates` are present, prepare a candidate review:
+2. Run the Design Pressure Gate until node scope, graph shape, and assumptions are clear enough to propose.
+3. Identify canonical entrypoints and files future sessions should read.
+4. Identify what must not be read by default.
+5. If existing `Node Candidates` are present, prepare a candidate review:
    - promote
    - merge
    - park
    - drop
    - leave as candidate
-5. Propose the minimal node split, dependencies, edge meanings, and storage target.
-6. Stop for user approval unless auto mode was explicitly requested.
-7. After approval, split the work into minimal resume nodes.
-8. Add dependencies and edge meanings.
-9. Ask only for decisions that affect node scope, ordering, parked work, or storage.
-10. Choose storage:
+6. Propose the minimal node split, dependencies, edge meanings, and storage target.
+7. Stop for user approval unless auto mode was explicitly requested.
+8. After approval, split the work into minimal resume nodes.
+9. Add dependencies and edge meanings.
+10. Ask only for decisions that affect node scope, ordering, parked work, or storage.
+11. Choose storage:
    - default: `<project-root>/.checkpoint/graphs/<slug>/`
    - run the Graph Home Confirmation Gate before writing if choosing any other location
-11. Write:
+12. Write:
    - `index.md`
    - `DECISIONS.md`
    - `nodes/*.md`
-12. Run the state update gate before final response.
-13. Run the self-audit gate before final response.
-14. Make the next-session entrypoint explicit:
+13. Run the state update gate before final response.
+14. Run the self-audit gate before final response.
+15. Make the next-session entrypoint explicit:
    - identify the recommended first node
    - state what a fresh session should load through `next-checkpoint`
    - keep restart instructions small enough that the graph, not the chat, carries the context
