@@ -1,5 +1,5 @@
 ---
-name: save-checkpoint
+name: checkpoint-save
 description: Save the actual work products of the current or existing session into a resumable checkpoint graph. Use when review-checkpoint recommends closing the session, context is getting too large, the user wants to preserve current work, or a session must hand off without losing changed files, decisions, blockers, rejected directions, and next actions. Inventories artifacts before designing nodes and updates checkpoint state before final response.
 ---
 

@@ -1,5 +1,5 @@
 ---
-name: next-checkpoint
+name: checkpoint-next
 description: Find and activate the next executable checkpoint node from an existing checkpoint graph. Use when the user asks what checkpoint is next, continue from checkpoint, open checkpoint, resume checkpoint work, choose a ready node, or load checkpoint context. Reads index.md first, then DECISIONS.md and one selected node by default. Updates checkpoint state when node selection or progress changes.
 ---
 

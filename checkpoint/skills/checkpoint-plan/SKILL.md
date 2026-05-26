@@ -1,5 +1,5 @@
 ---
-name: plan-checkpoint
+name: checkpoint-plan
 description: Create a future-work checkpoint graph for an unresolved task before the work is performed. Use when the user wants to split a large future problem into resumable nodes, create a Context DAG for later execution, park future work, or plan a multi-session continuation. Does not capture current-session artifacts; use save-checkpoint for actual session work.
 ---
 

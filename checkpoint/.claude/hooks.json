@@ -1,0 +1,55 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/checkpoint_session_hook.py\"",
+            "timeout": 10,
+            "statusMessage": "Initializing checkpoint session log"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/checkpoint_session_hook.py\"",
+            "timeout": 30,
+            "statusMessage": "Recording checkpoint session prompt"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/checkpoint_session_hook.py\"",
+            "timeout": 10,
+            "statusMessage": "Recording pre-compact boundary"
+          }
+        ]
+      }
+    ],
+    "PostCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"$(git rev-parse --show-toplevel)/.claude/hooks/checkpoint_session_hook.py\"",
+            "timeout": 10,
+            "statusMessage": "Recording compact boundary"
+          }
+        ]
+      }
+    ]
+  }
+}

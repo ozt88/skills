@@ -1,5 +1,5 @@
 ---
-name: review-checkpoint
+name: checkpoint-review
 description: Review a long, compacted, or drifting session to decide whether it should continue or be closed with save-checkpoint. Use after PostCompact, when context rot or task drift is suspected, when the user changes topics during active work, or when a session boundary needs to be explained. May write session-local rollups, but never writes authoritative checkpoint graph state.
 ---
 

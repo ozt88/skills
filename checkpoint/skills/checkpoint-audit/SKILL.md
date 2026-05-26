@@ -1,5 +1,5 @@
 ---
-name: audit-checkpoint
+name: checkpoint-audit
 description: Audit a checkpoint artifact for stale state, invalid structure, broken dependencies, missing files, oversized context, status conflicts, and conflicts with current user intent or local filesystem/git state. Use when the user asks to validate, audit, check, repair, refresh, invalidate, or inspect a checkpoint, or when an existing checkpoint may be stale before opening or updating it. Defaults to report-only and recommends fixes unless the user asks to apply safe mechanical updates.
 ---
 
