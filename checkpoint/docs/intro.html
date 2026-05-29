@@ -203,6 +203,10 @@
       .alt-card-head { padding: 14px 18px 12px; border-bottom: 1px solid var(--border); }
       .alt-card-head .alt-label { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
       .alt-card-head .alt-name { font-size: 16px; font-weight: 600; color: var(--heading); }
+      .alt-card-head .alt-ref { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 4px; }
+      .alt-card-head .alt-ref a { color: var(--accent); text-decoration: none; border-bottom: 1px dashed currentColor; }
+      .alt-card-head .alt-ref a:hover { border-bottom-style: solid; }
+      .alt-card-head .alt-ref .alt-sep { color: var(--border); margin: 0 4px; }
       .alt-card-body { padding: 14px 18px; }
       .alt-section { margin-bottom: 12px; }
       .alt-section:last-child { margin-bottom: 0; }
@@ -235,19 +239,20 @@
 
       <div class="alt-card">
         <div class="alt-card-head">
-          <div class="alt-label">수동 문서화</div>
-          <div class="alt-name">HANDOFF.md</div>
+          <div class="alt-label">Handoff 문서</div>
+          <div class="alt-name">Handoff 스킬</div>
+          <div class="alt-ref"><a href="https://github.com/mattpocock/skills/blob/main/skills/productivity/handoff/SKILL.md" target="_blank" rel="noopener">mattpocock/skills · handoff</a></div>
         </div>
         <div class="alt-card-body">
           <div class="alt-section">
             <div class="alt-section-label">접근 방식</div>
-            <div class="alt-row"><span class="dot-plus">✓</span>세션 종료 시 다음 세션을 위한 상태 요약을 명시적으로 남김</div>
+            <div class="alt-row"><span class="dot-plus">✓</span>세션 종료 시 다음 에이전트가 이어받을 수 있게 대화를 한 문서로 정리</div>
           </div>
           <div class="alt-section">
             <div class="alt-section-label">한계</div>
-            <div class="alt-row"><span class="dot-limit">✗</span>매 세션 덮어쓰기 — 전전 세션 내용은 소실</div>
-            <div class="alt-row"><span class="dot-limit">✗</span>재개 시 파일 전체 로드 — 누적될수록 context bloat</div>
-            <div class="alt-row"><span class="dot-limit">✗</span>작업 분기·병렬 진행을 표현할 구조가 없음</div>
+            <div class="alt-row"><span class="dot-limit">✗</span>다음 세션이 그 문서를 통째로 다시 로드 — 작업이 쌓일수록 시작 부담 증가</div>
+            <div class="alt-row"><span class="dot-limit">✗</span>후속 작업 갈래가 여러 개여도 한 문서에 같이 들어감</div>
+            <div class="alt-row"><span class="dot-limit">✗</span>덮어쓰기 방식이면 전전 세션 상세 내용을 다시 참조하기 어려움</div>
           </div>
         </div>
       </div>
@@ -255,19 +260,24 @@
       <div class="alt-card">
         <div class="alt-card-head">
           <div class="alt-label">사전 계획 기반</div>
-          <div class="alt-name">GSD Milestone</div>
+          <div class="alt-name">GSD · Superpowers</div>
+          <div class="alt-ref">
+            <a href="https://github.com/gsd-build/get-shit-done/" target="_blank" rel="noopener">gsd-build/get-shit-done</a>
+            <span class="alt-sep">·</span>
+            <a href="https://github.com/obra/superpowers" target="_blank" rel="noopener">obra/superpowers</a>
+          </div>
         </div>
         <div class="alt-card-body">
           <div class="alt-section">
             <div class="alt-section-label">접근 방식</div>
-            <div class="alt-row"><span class="dot-plus">✓</span>큰 작업을 phase·task로 사전 분해해 체계적으로 추적</div>
-            <div class="alt-row"><span class="dot-plus">✓</span>plan → execute → verify 사이클로 품질 보장</div>
+            <div class="alt-row"><span class="dot-plus">✓</span>큰 작업을 phase·task로 사전 분해, plan → execute → verify 사이클</div>
+            <div class="alt-row"><span class="dot-plus">✓</span>(Superpowers) subagent로 작업을 격리해 메인 세션 context 보호</div>
           </div>
           <div class="alt-section">
             <div class="alt-section-label">한계</div>
-            <div class="alt-row"><span class="dot-limit">✗</span>시작 전 전체 설계 — 실제와 괴리가 생기면 계획 전체 재작성</div>
-            <div class="alt-row"><span class="dot-limit">✗</span>세션 간 context 관리는 별도로 해야 함 (compact 대응 없음)</div>
-            <div class="alt-row"><span class="dot-limit">✗</span>방향 전환 시 milestone 단위 롤백·재설계 비용이 큼</div>
+            <div class="alt-row"><span class="dot-limit">✗</span>시작 전 전체 설계 — 실제 진행과 괴리 발생 시 계획 전체 재작성</div>
+            <div class="alt-row"><span class="dot-limit">✗</span>세션 간 context 보존은 별도 문제로 남음 (compact 대응 없음)</div>
+            <div class="alt-row"><span class="dot-limit">✗</span>방향 전환 시 phase·milestone 단위 롤백·재설계 비용 큼</div>
           </div>
         </div>
       </div>
