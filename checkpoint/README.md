@@ -1,151 +1,138 @@
 # Checkpoint
 
-Checkpoint is a context management workflow for long-running AI work sessions.
+Checkpoint is a context-management workflow for long-running AI coding sessions.
+It saves work as a small DAG of nodes so that a new session can load only the slice it needs, instead of replaying every previous conversation.
 
-It has three jobs:
+Supported runtimes: **Claude Code** and **Codex**.
 
-1. Review context rot inside an active session and suggest `save-checkpoint` before the session becomes unsafe.
-2. Replace oversized handoff documents with a checkpoint graph that can split work, track blockers, and return to the real problem when blockers are resolved.
-3. Keep a lightweight session-local evidence trail so compacted sessions can be reviewed without turning logs into another giant handoff.
+---
 
-## Primary Lifecycle
+## The Problem: Context Rot
 
-Checkpoint is designed around a session boundary.
+LLM performance degrades non-linearly as input length grows. Chroma's
+[Context Rot](https://github.com/chroma-core/context-rot) experiments show that
+the common assumption "the 10,000th token is handled as reliably as the 100th"
+does not hold in practice across NIAH variants, LongMemEval, and repeated-word
+recall.
 
-The default lifecycle is:
+When you collaborate with a coding agent across many sessions, this shows up as:
 
-```text
-active session
-  -> hooks record lightweight session evidence
-  -> PreCompact records the upcoming compact boundary
-  -> PostCompact confirms successful compact and records pending review
-  -> the next SessionStart/UserPromptSubmit injects review-checkpoint context
-  -> the active agent runs review-checkpoint before continuing
-  -> review-checkpoint reviews context rot or task drift
-  -> save-checkpoint captures the current session and closes the active work state
-  -> plan-checkpoint prepares the next-session graph when future work is not already explicit
-  -> clear the current chat or start a new session
-  -> next-checkpoint loads the next executable node with minimal context
-```
+| Symptom | What it looks like |
+|---|---|
+| Early-context forgetting | Decisions and constraints from the start of the session fade; rejected directions get re-suggested. |
+| Retrieval accuracy drop | Finding the right piece of information inside a long input becomes unreliable. |
+| Cross-topic interference | Multiple subjects accumulate in one context and bleed into each other. |
+| Inconsistency | The model contradicts patterns it established earlier in the same session. |
 
-In other words:
+---
 
-- hooks record evidence; they do not write checkpoint graphs.
-- `PreCompact` records the compact boundary before context is rewritten.
-- `PostCompact` confirms the automatic review boundary after compaction succeeds.
-- `PostCompact` cannot directly execute a skill. Current Codex runtime records PostCompact hook output as hook completion metadata, so the reliable review path is to persist a pending review flag and inject `review-checkpoint` context on the next `SessionStart` or `UserPromptSubmit`.
-- `review-checkpoint` summarizes the compacted segment and asks whether to continue or save.
-- `save-checkpoint` is how a full or risky session is safely ended.
-- `plan-checkpoint` is how unresolved future work is shaped before the next session starts.
-- `next-checkpoint` is what a fresh session uses after clear/resume to choose what to execute.
+## Existing Approaches and Their Gaps
 
-`plan-checkpoint` can be skipped only when `save-checkpoint` already produced clear executable next nodes. If the next session would otherwise need a large handoff to know what to do, run `plan-checkpoint` before clearing.
+Several common approaches partially address this. None of them cover the case
+where work spans several sessions and branches into multiple follow-ups.
 
-## Install
+| Approach | What it gives you | Where it falls short |
+|---|---|---|
+| **Compact** (built-in) | Auto-summarizes when context fills up. | Lossy. You cannot tell what was dropped. Repeated compacts thin out early decisions. State cannot be restored across session boundaries. |
+| **HANDOFF.md** | Explicit end-of-session summary. | Overwritten each session, so older history is lost. Reloaded in full at resume → context bloat. No structure for branching follow-up work. |
+| **Pre-planned milestones** (e.g. GSD) | Decomposes a large goal into phases up front. | Pre-plan drifts from reality; direction changes force rewriting the whole plan. No built-in handling for context across sessions. |
 
-Checkpoint has two install surfaces:
+The common gap: when one finished task spawns *multiple, unrelated follow-ups*,
+all of them stay in the same document and pollute every subsequent session.
 
-1. Skills: copied into the Codex skills root.
-2. Optional hooks: installed into the global Codex config as a session evidence layer.
+---
 
-### Install Skills
+## Checkpoint's Approach
 
-Copy each skill directory into your Codex skills root:
+Work is stored as a DAG of nodes on the filesystem. A new session reads
+`index.md` and loads only the node it is about to execute plus the Output
+Contracts of its direct dependencies.
 
-```text
-~/.codex/skills/review-checkpoint/
-~/.codex/skills/save-checkpoint/
-~/.codex/skills/plan-checkpoint/
-~/.codex/skills/next-checkpoint/
-~/.codex/skills/audit-checkpoint/
-```
+Three core mechanisms:
 
-Example from a cloned `checkpoint` repo:
+1. **Node-level separation.** Completed work is compressed into an Output
+   Contract (the result, not the conversation) and stored as a node. Rejected
+   options, failed attempts, and intermediate discussion end with the session.
+2. **Branching of follow-up work.** `checkpoint-plan` turns "what's left"
+   into independent nodes — one per concern — connected by dependencies.
+   Whichever branch you pick up next, only its node is loaded.
+3. **Hook-recorded evidence + incremental replanning.** `PreCompact` /
+   `PostCompact` hooks preserve the pre-compact work flow as a rollup and
+   inject a review reminder afterwards. `checkpoint-plan` reads that evidence
+   so its node design reflects what actually happened, not what was planned a
+   week ago.
 
-```bash
-mkdir -p ~/.codex/skills
-cp -R skills/review-checkpoint ~/.codex/skills/
-cp -R skills/save-checkpoint ~/.codex/skills/
-cp -R skills/plan-checkpoint ~/.codex/skills/
-cp -R skills/next-checkpoint ~/.codex/skills/
-cp -R skills/audit-checkpoint ~/.codex/skills/
-```
+### Why it changes the resume cost
 
-### Install Optional Global Hooks
+Day-by-day comparison for an auth-rollout example (auth-service →
+user-service / admin-panel / api-gateway):
 
-The checkpoint skills work without hooks. Install hooks only when you want Codex to record lightweight session-local evidence under each active workspace:
+| Day | Working on | HANDOFF.md initial context | Checkpoint initial context |
+|---|---|---|---|
+| Day 1 | auth-service | 0 | 0 |
+| Day 2 | user-service | ~5,000 tokens (full prior session) | ~300 tokens (node-b + node-a Output Contract) |
+| Day 3 | admin-panel | ~9,500 tokens (Day 1+2 accumulated) | ~500 tokens (node-c + node-a Output Contract) |
 
-```text
-.checkpoint/sessions/<session_id>/
-  session.json
-  state.json
-  events.jsonl
-```
+Working on admin-panel on Day 3 does not load Day 2's user-service discussion,
+because they live in different nodes.
 
-PowerShell installer:
+---
 
-```powershell
-.\scripts\install-global-hooks.ps1
-```
+## The Six Skills
 
-The installer copies `hooks/checkpoint_session_hook.py` into `~/.codex/hooks/` and writes hook configuration to:
+| Skill | Role |
+|---|---|
+| `/checkpoint-review` | Diagnose the current session. Decide *continue or save*. Hook-injected after compact; usable manually too. |
+| `/checkpoint-save` | Persist completed work as Done nodes with Output Contracts. Conversation noise is discarded. |
+| `/checkpoint-plan` | Split remaining work into independent Ready nodes with dependencies. Reads hook evidence so the design reflects reality. |
+| `/checkpoint-next` | In a fresh session, pick the next Ready node and load the minimum context. |
+| `/checkpoint-audit` | Validate the graph (stale state, broken deps, status conflicts) before resuming after a long pause. |
+| `/checkpoint-viz` | Render the graph as an interactive single-file HTML dashboard (DAG, node detail panel, CP-ADR list). |
 
-```text
-~/.codex/requirements.toml
-~/.codex/config.toml
-```
+---
 
-Restart Codex after installing. If Codex asks to review or trust the hook, approve it before expecting runtime records.
+## Hook Automation
 
-The hook is non-authoritative. It writes session evidence only; checkpoint graph state is still owned by `save-checkpoint`, `plan-checkpoint`, `next-checkpoint`, and `audit-checkpoint`.
+Install the hooks and Claude/Codex will tell you when it is time to save —
+you don't have to watch token usage yourself.
 
-### Windows Notes
+### How risk is judged
 
-The included hook config has `command_windows` entries that run:
+`/checkpoint-review` combines three signals to decide whether the current
+session should be closed:
 
-```text
-python "%USERPROFILE%\.codex\hooks\checkpoint_session_hook.py"
-```
+1. **Session length** — accumulated prompt count.
+2. **Compact accumulation** — `compact_count` (both auto and manual compacts).
+3. **Prompt flow** — the meaningful one.
 
-Python must be available as `python`.
+The prompt-flow signal is what makes the judgment more than a threshold check.
+The `UserPromptSubmit` hook appends a small record of each user prompt (hash,
+length, lead, tail) to `events.jsonl`. `/checkpoint-review` reads this trail
+to detect patterns like:
 
-If your environment uses `py -3` instead, edit `~/.codex/requirements.toml` and `~/.codex/config.toml` accordingly.
+- **Topic transition** — implementation → debugging → a different feature.
+- **Branching** — a side concern was discovered mid-task (e.g. "need to bump
+  auth exp to 4h while working on user-service").
+- **Repeating loops** — the same area is revisited multiple times.
+- **Natural completion** — a task wrapped up cleanly (a good place to cut a
+  node).
 
-### Verify Hook Installation
+The decision blends all three signals; raw token usage alone is not the trigger.
 
-After restart and trust:
-
-- `SessionStart` should initialize `.checkpoint/sessions/<session_id>/session.json`.
-- `UserPromptSubmit` should append prompt evidence to `.checkpoint/sessions/<session_id>/events.jsonl`.
-- `PreCompact` should append a pre-compact boundary event before the conversation is compacted.
-- `PostCompact` should append a compact event and mark compact review as pending.
-- The next `SessionStart` with `source:"compact"` or the next `UserPromptSubmit` should inject `review-checkpoint` instructions through `hookSpecificOutput.additionalContext`.
-- After a real compact, check the follow-up result: whether `review-checkpoint` ran, whether a session-local rollup was created, and whether the session was continued or saved intentionally.
-
-The hook never writes `.checkpoint/graphs/**` and never runs `save-checkpoint` automatically.
-
-## The First Problem: Context Rot Inside A Session
-
-Long AI sessions fail in two common ways:
-
-- too much context accumulates inside one session
-- the user suddenly switches to a different problem before the current state is safely captured
-
-Checkpoint treats both as context-rot signals.
-
-The `review-checkpoint` skill reviews context usage, unresolved decisions, stale branches, task switching, and state that exists only in chat. It can run manually when the user suspects context drift, or automatically after compact. When the session is getting unsafe, it should point out the problem and ask whether to save the current work:
+### The automation loop
 
 ```text
-Continue in this session, or save the current work with save-checkpoint first?
+compact happens  →  hooks mark "pending review"  →  next user prompt
+              →  Claude/Codex auto-runs /checkpoint-review
+              →  if risky, suggests /checkpoint-save
 ```
 
-The review is not meant to interrupt every long conversation. It is meant to catch the moment when continuing would make future resume depend on an oversized or polluted memory of the session.
+Manual `/compact` triggers the same flow — both go through `PreCompact` /
+`PostCompact`.
 
-## Session-Local Evidence Layer
+### What hooks write (non-authoritative)
 
-Checkpoint can use hooks as a recording layer, not as an automation engine.
-
-Hooks should write only lightweight session-local evidence:
+Hooks only record evidence. They do not touch checkpoint graph state.
 
 ```text
 .checkpoint/sessions/<session_id>/
@@ -156,232 +143,161 @@ Hooks should write only lightweight session-local evidence:
     001-post-compact.md
 ```
 
-This layer is non-authoritative. It is allowed to help `review-checkpoint` and `save-checkpoint`, but it must not update checkpoint graph state.
+Graph state under `.checkpoint/graphs/**` is only ever written by
+`/checkpoint-save`, `/checkpoint-plan`, `/checkpoint-next`, and
+`/checkpoint-audit`.
 
-Recommended hook behavior:
+---
+
+## Lifecycle
 
 ```text
-SessionStart
-  -> initialize session.json
-  -> append session_start source: startup/resume/clear/compact
+active session
+  ├─ hooks record events.jsonl / state.json / pre-compact / post-compact
+  ├─ on compact: review reminder injected to the next prompt
+  │
+  └─ /checkpoint-review     decide: continue or save
+        │
+        ├─ continue
+        │
+        └─ /checkpoint-save  Done nodes with Output Contracts
+              │
+              └─ /checkpoint-plan  remaining work split into independent
+                    │              Ready nodes (by concern)
+                    │
+                    └─ /clear
 
-UserPromptSubmit
-  -> append hash, length, lead, tail, timestamp
-
-PreCompact
-  -> record compact trigger/count before compaction
-
-PostCompact
-  -> record compact trigger/count
-  -> mark compact review as pending
-
-SessionStart(source=compact) or UserPromptSubmit
-  -> if compact review is still pending
-  -> inject additionalContext requiring review-checkpoint
-
-review-checkpoint
-  -> summarize the just-compacted request flow
-  -> write a session-local rollup when possible
-  -> explain possible drift or handoff risk
-  -> ask whether to continue or run save-checkpoint
-
-After compact, verify both layers:
-
-1. Hook evidence: `events.jsonl` contains `pre_compact` and `post_compact`, and `state.json` counters changed.
-2. Workflow result: the next prompt received injected review context, and the active session either ran `review-checkpoint` and produced a rollup, or recorded why that did not happen.
+new session
+  └─ /checkpoint-next   load: index.md + selected node + deps' Output Contracts
+                        (other branches stay unloaded)
 ```
 
-Do not store full prompts, full transcripts, full tool outputs, or full diffs. Do not classify topic drift inside hooks. `review-checkpoint` may interpret the flow; hooks should only record evidence.
+`/checkpoint-plan` is skippable only when `/checkpoint-save` already produced
+clear executable next nodes. If the next session would otherwise need a large
+handoff to know what to do, run `/checkpoint-plan` before clearing.
 
-## The Second Problem: Handoff Becomes The New Context Rot
+---
 
-The core problem is not that handoff notes are too weak. The problem is that handoff notes become too large, while still missing important context.
-
-As work continues across many sessions, a handoff tends to accumulate everything:
-
-- current decisions
-- old decisions
-- rejected directions
-- pending work
-- blockers
-- modified files
-- validation notes
-- user preferences
-- warnings for the next session
-
-At first this prevents context loss. Later it becomes a new source of context pollution. Each resume loads the whole handoff again, including stale decisions, completed work, rejected paths, and background that is no longer active. The next session starts with too much context, not too little, and the model has to infer which parts still matter.
-
-Checkpoint replaces the growing handoff document with a small executable graph. Work can be split into nodes, blockers can be represented explicitly, and once blockers are resolved the next session can return to the real problem without loading every previous side path.
-
-## Goal
-
-Resume should not mean "load the whole previous session."
-
-Resume should mean:
-
-1. Read the graph status.
-2. Select the next executable node.
-3. Load only the decisions relevant to that node.
-4. Execute or update that node.
-
-The goal is to preserve continuity without re-injecting all old context into every future session.
-
-## Repository Shape
+## Repository Layout
 
 ```text
-.checkpoint/graphs/<slug>/
+checkpoint/
+├─ README.md                  ← this file
+├─ skills/
+│  ├─ checkpoint-review/
+│  ├─ checkpoint-save/
+│  ├─ checkpoint-plan/
+│  ├─ checkpoint-next/
+│  ├─ checkpoint-audit/
+│  └─ checkpoint-viz/
+├─ hooks/
+│  ├─ checkpoint_session_hook.py
+│  └─ requirements.example.toml
+├─ scripts/
+│  ├─ install-claude.sh
+│  └─ install-codex.sh
+├─ .claude/                   ← Claude Code integration assets
+└─ .codex/                    ← Codex integration assets
+```
+
+Graphs and session evidence created during usage:
+
+```text
+<project>/.checkpoint/graphs/<slug>/
   index.md
   DECISIONS.md
   nodes/
     N1-...
     N2-...
 
-.checkpoint/sessions/<session_id>/
+<project>/.checkpoint/sessions/<session_id>/
   session.json
+  state.json
   events.jsonl
   rollups/
     001-post-compact.md
 ```
 
-This repository also includes the Codex skills that implement the workflow:
-
-```text
-skills/
-  review-checkpoint/
-  save-checkpoint/
-  plan-checkpoint/
-  next-checkpoint/
-  audit-checkpoint/
-```
-
-The repository also includes optional global Codex hook assets:
-
-```text
-hooks/checkpoint_session_hook.py
-hooks/requirements.example.toml
-scripts/install-global-hooks.ps1
-```
-
-The hook writes session-local evidence and carries a pending compact review signal into the next agent-visible hook context; it does not execute `save-checkpoint` or write graph state.
-
-Current Codex command hooks cannot directly call a skill as an API. The `PreCompact` hook records an early boundary before context is rewritten; the `PostCompact` hook confirms compact success and stores pending review metadata. The next `SessionStart` or `UserPromptSubmit` hook injects agent-visible `review-checkpoint` context before normal work continues.
+---
 
 ## File Roles
 
 ### `index.md`
 
-Routing and status only.
+Routing and status only. Answers:
 
-It answers:
+- Which nodes exist, and what is their status (`Ready` / `In Progress` /
+  `Done` / `Blocked` / `Parked` / `Dropped`).
+- Which node should be picked next.
+- Which dependencies block what.
 
-- Which nodes exist?
-- Which nodes are `Ready`, `In Progress`, `Done`, `Blocked`, `Parked`, or `Dropped`?
-- Which node should be considered next?
-- Which dependencies block execution?
-
-It should not become a context dump.
+Not a context dump.
 
 ### `DECISIONS.md`
 
-Checkpoint-local ADRs.
-
-It records durable decisions, rejected directions, and do-not-reopen constraints that affect more than one node.
-
-It should not copy project documentation. It exists so a future session can load only the decisions relevant to the selected node.
+Checkpoint-local ADRs — durable decisions, rejected directions, do-not-reopen
+constraints that span multiple nodes. Does not duplicate project docs.
 
 ### `nodes/*.md`
 
-Executable resume units.
+Executable resume units. Each node contains just enough to do that unit of
+work, optionally citing relevant entries from `DECISIONS.md`.
 
-Each node should contain enough context to execute that unit, but not the entire graph. A node can cite relevant decisions from `DECISIONS.md`.
+---
 
-## Skills
+## Install
 
-### `review-checkpoint`
+Each installer is a single bash script that installs the six skills, the hook
+script, and the hook configuration in one step. Re-running is safe — managed
+blocks in config files are replaced on each run.
 
-Session boundary review.
+Requirements: bash, `python3` on `PATH`.
 
-It is required after `PostCompact` and can also be called manually. The hook supplies the requirement through pending compact review metadata and next-turn `additionalContext`; the active agent performs the skill invocation. It reviews compacted, long, or drifting sessions and explains whether continuing may cause context loss or context pollution. It should only offer:
+**Claude Code:**
 
-- continue in the current session
-- save current work with `save-checkpoint`
-
-It may write session-local rollups under `.checkpoint/sessions/<session_id>/`, but it should not automatically route to planning, opening, auditing, or authoritative graph writes.
-
-### `save-checkpoint`
-
-Captures actual current-session work.
-
-It records changed artifacts, decisions, blockers, rejected directions, validation state, and next actions. It may consult session-local evidence and rollups, but it writes the authoritative graph state. It also updates node status after work has been performed.
-
-### `plan-checkpoint`
-
-Creates a checkpoint graph for future work that has not been executed yet.
-
-It must not pretend to capture current-session artifacts.
-
-### `next-checkpoint`
-
-Selects the next executable node from an existing graph.
-
-It reads `index.md` first, then only the relevant `DECISIONS.md` entries and the selected node.
-
-### `audit-checkpoint`
-
-Validates checkpoint structure and freshness.
-
-It checks stale state, missing files, invalid dependencies, status conflicts, oversized context, and conflict with current user intent or local filesystem state.
-
-## Why Graph, Not Handoff?
-
-A handoff is a narrative summary.
-
-A checkpoint graph is a state model.
-
-Handoff answers:
-
-```text
-What happened before?
+```bash
+bash scripts/install-claude.sh           # ~/.claude/ (global)
+bash scripts/install-claude.sh --local   # ./.claude/ (project-local)
 ```
 
-Checkpoint answers:
+**Codex:**
 
-```text
-What is executable now?
-What is done?
-What is blocked?
-What should not be loaded unless needed?
+```bash
+bash scripts/install-codex.sh            # ~/.codex/
 ```
 
-This matters because long-running work does not only need memory. It needs selective loading.
+After installing, restart the runtime and approve the hook when prompted.
 
-## Review Trigger Philosophy
+> The skills alone are usable without hooks, but **hooks are strongly
+> recommended**. Without them you have to call `/checkpoint-review` yourself
+> at the right moment; with them, the runtime auto-runs review after compact
+> and proposes `/checkpoint-save` when the session is risky.
 
-The review should not trigger because "a lot happened."
+### Verifying
 
-It should trigger when failing to checkpoint would force a future session to reconstruct state from a large, polluted handoff.
+After restart:
 
-Good trigger candidates:
+- `SessionStart` initializes `.checkpoint/sessions/<session_id>/session.json`.
+- `UserPromptSubmit` appends to `events.jsonl`.
+- `PreCompact` records the compact boundary.
+- `PostCompact` records the compact and marks review as pending.
+- The next `SessionStart` (`source: "compact"`) or `UserPromptSubmit` injects
+  the review reminder via `hookSpecificOutput.additionalContext`.
 
-- session usage is near a high-water mark such as 80%
-- auto-compact, resume, or context loss risk is explicit
-- the user switches tasks before the current state is file-backed
-- global behavior rules, skills, or setting structure changed
-- important decisions, rejected directions, or next actions exist only in chat
-- a future session would struggle to reconstruct what is current, stale, done, or blocked
+If `python3` is not on `PATH`, install it first (or use a Python virtualenv
+that exposes `python3`). Hook commands are written with `python3` explicitly,
+so a `python`-only environment will fail until that name resolves.
 
-Poor trigger candidates by themselves:
+---
 
-- raw file count
-- a TODO line was added
-- a report was created and already saved
-- the user merely said "context" or "checkpoint"
-- the user asked a natural follow-up in the same active problem
+## Design Principles
 
-## Design Principle
-
-Do not make better giant handoffs.
-
-Make handoffs unnecessary for normal resume.
-
-Use a graph so future sessions can load the smallest correct context.
+- **Don't build better giant handoffs. Make handoffs unnecessary.**
+  Resume should mean "read the graph and load the next node," not "load the
+  whole previous session."
+- **Hooks record. Skills decide.** Hooks write only evidence. Authoritative
+  graph state is only ever written by the skills.
+- **Result, not conversation.** Output Contracts carry the decision result;
+  rejected options and intermediate exploration end with the session.
+- **Separate branches, separate nodes.** A finished task with three follow-ups
+  becomes three nodes — so working on one never drags in the other two.

@@ -42,7 +42,7 @@ echo "✓ Hook script: $HOOKS_DIR/checkpoint_session_hook.py"
 
 # Install skills
 SKILLS_DIR="$CLAUDE_DIR/skills"
-for skill in checkpoint-save checkpoint-review checkpoint-plan checkpoint-next checkpoint-audit; do
+for skill in checkpoint-save checkpoint-review checkpoint-plan checkpoint-next checkpoint-audit checkpoint-viz; do
   mkdir -p "$SKILLS_DIR/$skill"
   cp "$REPO_ROOT/skills/$skill/SKILL.md" "$SKILLS_DIR/$skill/SKILL.md"
   echo "✓ Skill: $skill"
