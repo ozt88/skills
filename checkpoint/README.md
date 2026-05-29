@@ -5,6 +5,8 @@ It saves work as a small DAG of nodes so that a new session can load only the sl
 
 Supported runtimes: **Claude Code** and **Codex**.
 
+> **Visual intro:** [docs/intro.html](./docs/intro.html) — interactive walkthrough of the context-rot problem, existing approaches, Checkpoint's mechanisms, and the day-by-day workflow. Open with VS Code's *Show Preview* or any browser.
+
 ---
 
 ## The Problem: Context Rot
