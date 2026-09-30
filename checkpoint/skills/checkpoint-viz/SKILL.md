@@ -6,7 +6,7 @@ description: Visualize the current checkpoint graph as an interactive HTML dashb
 # Checkpoint Visualizer
 
 Produce an interactive, single-file HTML dashboard from a checkpoint graph.
-Follow the same visual conventions as the `visualize` skill (CSS variables, dark mode).
+Define colors as CSS variables and support dark mode via `prefers-color-scheme`.
 UI labels (tab names, buttons, status text) must match the user's current conversation language.
 
 ---
