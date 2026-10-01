@@ -1,18 +1,18 @@
 ---
 name: checkpoint-plan
-description: Create a future-work checkpoint graph for an unresolved task before the work is performed. Use when the user wants to split a large future problem into resumable nodes, create a Context DAG for later execution, park future work, or plan a multi-session continuation. Does not capture current-session artifacts; use save-checkpoint for actual session work.
+description: Create a future-work checkpoint graph for an unresolved task before the work is performed. Use when the user wants to split a large future problem into resumable nodes, create a Context DAG for later execution, park future work, or plan a multi-session continuation. Does not capture current-session artifacts; use checkpoint-save for actual session work.
 ---
 
 # Plan Checkpoint
 
 Plan a checkpoint graph for future work.
 
-This skill is for work that has not happened yet. If the user wants to preserve actual work from the current or another session, use `save-checkpoint`.
+This skill is for work that has not happened yet. If the user wants to preserve actual work from the current or another session, use `checkpoint-save`.
 
 In the checkpoint lifecycle, this prepares the next session after current work has been saved:
 
 ```text
-save-checkpoint -> plan-checkpoint -> clear/new session -> next-checkpoint
+checkpoint-save -> checkpoint-plan -> clear/new session -> checkpoint-next
 ```
 
 Use it when unresolved future work would otherwise require a large handoff or an ambiguous restart prompt.
@@ -25,7 +25,7 @@ Do not summarize a whole project. Do not duplicate existing source-of-truth docu
 
 ## Design Pressure Gate
 
-Before proposing a node split, pressure-test assumptions that materially affect graph shape. This is built into `plan-checkpoint`; do not invoke or depend on `grill-me`.
+Before proposing a node split, pressure-test assumptions that materially affect graph shape. This is built into `checkpoint-plan`; do not invoke or depend on `grill-me`.
 
 Ask one concise question at a time only when the answer cannot be discovered from local files and would change node scope, ordering, status, read boundary, storage, or approval requirements. Otherwise inspect the local context instead of asking.
 
@@ -65,7 +65,7 @@ If confirmation is not needed, include the chosen graph home in the plan proposa
 
 ## Interactive Planning Gate
 
-`plan-checkpoint` is interactive by default.
+`checkpoint-plan` is interactive by default.
 
 Before writing or updating checkpoint graph files, present a plan proposal and get user approval.
 
@@ -91,7 +91,7 @@ Explicit approval means the user confirms the proposed structure or gives clear 
 - `N3만 만들고 N4는 보류`
 - `두 후보를 하나로 합쳐`
 
-Calling `plan-checkpoint` by itself is not approval to write.
+Calling `checkpoint-plan` by itself is not approval to write.
 
 If the user explicitly requests auto mode, such as `auto`, `비대화형`, or `추천안대로 바로 작성`, graph writes are allowed without an approval turn. In that case, state in the final response that auto mode was used.
 
@@ -123,7 +123,7 @@ If the user explicitly requests auto mode, such as `auto`, `비대화형`, or `�
 14. Run the self-audit gate before final response.
 15. Make the next-session entrypoint explicit:
    - identify the recommended first node
-   - state what a fresh session should load through `next-checkpoint`
+   - state what a fresh session should load through `checkpoint-next`
    - keep restart instructions small enough that the graph, not the chat, carries the context
 
 ## Edge Meanings
@@ -181,9 +181,9 @@ Checkpoint state: unchanged — <reason>
 
 ## Self-Audit Gate
 
-After creating the checkpoint graph and before final response, validate it using the `audit-checkpoint` checks.
+After creating the checkpoint graph and before final response, validate it using the `checkpoint-audit` checks.
 
-`plan-checkpoint` owns graph creation. `audit-checkpoint` owns validation. Do not delegate graph writing to audit.
+`checkpoint-plan` owns graph creation. `checkpoint-audit` owns validation. Do not delegate graph writing to audit.
 
 Required checks:
 

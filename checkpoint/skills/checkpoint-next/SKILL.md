@@ -7,12 +7,12 @@ description: Find and activate the next executable checkpoint node from an exist
 
 Find the next executable checkpoint node and pass the minimal context needed to continue.
 
-This skill opens existing checkpoint graphs. It does not create future plans from scratch; use `plan-checkpoint` for that. It does not package a full session's work products; use `save-checkpoint` for that.
+This skill opens existing checkpoint graphs. It does not create future plans from scratch; use `checkpoint-plan` for that. It does not package a full session's work products; use `checkpoint-save` for that.
 
 In the checkpoint lifecycle, this is the fresh-session entrypoint after the previous chat was cleared or a new session was started:
 
 ```text
-save-checkpoint -> plan-checkpoint when needed -> clear/new session -> next-checkpoint
+checkpoint-save -> checkpoint-plan when needed -> clear/new session -> checkpoint-next
 ```
 
 Do not load the old handoff or full prior conversation by default. The graph is the resume surface.

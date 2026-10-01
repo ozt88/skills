@@ -1,6 +1,6 @@
 ---
 name: checkpoint-save
-description: Save the actual work products of the current or existing session into a resumable checkpoint graph. Use when review-checkpoint recommends closing the session, context is getting too large, the user wants to preserve current work, or a session must hand off without losing changed files, decisions, blockers, rejected directions, and next actions. Inventories artifacts before designing nodes and updates checkpoint state before final response.
+description: Save the actual work products of the current or existing session into a resumable checkpoint graph. Use when checkpoint-review recommends closing the session, context is getting too large, the user wants to preserve current work, or a session must hand off without losing changed files, decisions, blockers, rejected directions, and next actions. Inventories artifacts before designing nodes and updates checkpoint state before final response.
 ---
 
 # Save Checkpoint
@@ -12,21 +12,21 @@ This skill is for work that already happened. It is not for planning a future ta
 In the checkpoint lifecycle, this is the session-closing step:
 
 ```text
-active session -> save-checkpoint -> plan-checkpoint when needed -> clear/new session -> next-checkpoint
+active session -> checkpoint-save -> checkpoint-plan when needed -> clear/new session -> checkpoint-next
 ```
 
 After saving, do not keep expanding the same bloated session unless the user explicitly chooses to continue.
 
 ## Strict Boundary
 
-`save-checkpoint` captures already-performed work. It must not design new future execution nodes just because a next action is visible.
+`checkpoint-save` captures already-performed work. It must not design new future execution nodes just because a next action is visible.
 
 Allowed:
 
 - finalize or update nodes for work that was actually performed
 - mark the active node `Done`, `In Progress`, `Blocked`, `Dropped`, `Superseded`, or `Split`
 - expose node candidates for work that was started but is not yet ready to become a formal node
-- record unresolved future work as `Next action`, `Remaining risks`, `Blockers`, or a `plan-checkpoint needed` note
+- record unresolved future work as `Next action`, `Remaining risks`, `Blockers`, or a `checkpoint-plan needed` note
 - unlock existing nodes whose dependencies are now satisfied
 
 Forbidden:
@@ -34,31 +34,31 @@ Forbidden:
 - create new nodes for work that has not started
 - convert every remaining risk into a future node
 - set `Recommended Next` to a newly invented future node
-- treat `save-checkpoint` as a substitute for `plan-checkpoint`
+- treat `checkpoint-save` as a substitute for `checkpoint-plan`
 
 If future work needs node design, write a small handoff note:
 
 ```text
-plan-checkpoint needed: <future work that requires graph design>
+checkpoint-plan needed: <future work that requires graph design>
 ```
 
-Then stop. Do not create that future graph inside `save-checkpoint`.
+Then stop. Do not create that future graph inside `checkpoint-save`.
 
 ## Candidate Exposure Inside Existing Nodes
 
 Some work is not future-only. A long session may start several threads before they are complete enough to become clean checkpoint nodes.
 
-`save-checkpoint` must expose these candidates inside an existing node instead of hiding them.
+`checkpoint-save` must expose these candidates inside an existing node instead of hiding them.
 
 Use `Node Candidates` inside the active node's `Progress Snapshot` or `Output Contract` when work is:
 
 - actually started in the saved session
 - mentioned repeatedly or materially changed by the session
 - blocked, partial, or ambiguous
-- likely to become a node if the user later runs `plan-checkpoint`
+- likely to become a node if the user later runs `checkpoint-plan`
 - too under-specified to safely mark as `Ready`, `Done`, or `In Progress`
 
-Candidate entries are not canonical node state and must not appear as rows in graph `index.md`. They are a shortlist for future `plan-checkpoint`.
+Candidate entries are not canonical node state and must not appear as rows in graph `index.md`. They are a shortlist for future `checkpoint-plan`.
 
 Format:
 
@@ -67,12 +67,12 @@ Format:
 - candidate: <short slug>
   evidence: <what was actually touched or decided>
   why not a node yet: <missing scope, unclear output, user decision needed, or no work performed>
-  suggested next step: continue | ask user | plan-checkpoint
+  suggested next step: continue | ask user | checkpoint-plan
 ```
 
-Do not add candidates for merely imagined future work. If no work was started, use `plan-checkpoint needed` instead.
+Do not add candidates for merely imagined future work. If no work was started, use `checkpoint-plan needed` instead.
 
-`plan-checkpoint` may later read these candidates and create new nodes from them. `save-checkpoint` must not create those nodes.
+`checkpoint-plan` may later read these candidates and create new nodes from them. `checkpoint-save` must not create those nodes.
 
 ## Storage Home Confirmation Gate
 
@@ -108,7 +108,7 @@ Active checkpoint graphs live in:
 <project-root>/.checkpoint/graphs/<slug>/
 ```
 
-When `save-checkpoint` determines that a graph has no remaining executable work, move the whole graph folder to:
+When `checkpoint-save` determines that a graph has no remaining executable work, move the whole graph folder to:
 
 ```text
 <project-root>/.checkpoint/archive/graphs/<slug>/
@@ -122,7 +122,7 @@ Archive a graph when:
 - `Recommended Next` is absent or no longer executable
 - remaining work was completed, dropped, or superseded by another graph
 
-After archiving, `next-checkpoint` should no longer treat the graph as a normal resume candidate.
+After archiving, `checkpoint-next` should no longer treat the graph as a normal resume candidate.
 
 ## Core Contract
 
@@ -187,20 +187,20 @@ Exclude:
    - do not add future-only nodes unless they represent work already started in this session
    - if no executable work remains, archive the graph folder under `.checkpoint/archive/graphs/`
 8. Self-audit gate:
-   - run the `audit-checkpoint` checklist against the updated graph
+   - run the `checkpoint-audit` checklist against the updated graph
    - fix High and Medium issues introduced by this save
    - report remaining Low issues if they are intentionally deferred
 9. End-of-session handoff:
-   - state whether `plan-checkpoint` is needed before clearing
-   - if existing next executable nodes are already clear, say `plan-checkpoint` may be skipped
-   - if the graph was archived, say `next-checkpoint` will not select it by default
-   - if the next work is only a future intention and no existing node represents it, say `plan-checkpoint` is needed instead of creating the node
+   - state whether `checkpoint-plan` is needed before clearing
+   - if existing next executable nodes are already clear, say `checkpoint-plan` may be skipped
+   - if the graph was archived, say `checkpoint-next` will not select it by default
+   - if the next work is only a future intention and no existing node represents it, say `checkpoint-plan` is needed instead of creating the node
    - if started-but-unfinished work exists but is not ready to formalize, list it inside the relevant existing node under `Node Candidates`
-   - tell the user the next fresh session should use `next-checkpoint`
+   - tell the user the next fresh session should use `checkpoint-next`
 
 ## Existing Checkpoint Update
 
-If this session started from an existing checkpoint node, `save-checkpoint` also finalizes that node's state.
+If this session started from an existing checkpoint node, `checkpoint-save` also finalizes that node's state.
 
 1. Identify the checkpoint path and active node.
 2. Decide node state:
@@ -263,18 +263,18 @@ Bad:
 
 Do not create nodes for completed work unless they are needed as dependencies. Put completed decisions in `DECISIONS.md`.
 
-Do not create nodes for unstarted future work in `save-checkpoint`. Put that future work in:
+Do not create nodes for unstarted future work in `checkpoint-save`. Put that future work in:
 
 - `Remaining risks`
 - `Next action`
 - `Blockers`
-- `plan-checkpoint needed`
+- `checkpoint-plan needed`
 
-Use `plan-checkpoint` later if the future work should become a graph.
+Use `checkpoint-plan` later if the future work should become a graph.
 
 For started-but-unfinished work, do not hide it. Put it inside an existing node's `Node Candidates` section unless it is already clear enough to become an `In Progress` node with a `Progress Snapshot`.
 
-`Node Candidates` is an input to future `plan-checkpoint`, not a node creation mechanism inside `save-checkpoint`.
+`Node Candidates` is an input to future `checkpoint-plan`, not a node creation mechanism inside `checkpoint-save`.
 
 ## DECISIONS.md Format
 
@@ -318,9 +318,9 @@ Do not claim the checkpoint is saved if `index.md`, `DECISIONS.md`, and relevant
 
 ## Self-Audit Gate
 
-After writing checkpoint files and before final response, validate the updated graph using the `audit-checkpoint` checks.
+After writing checkpoint files and before final response, validate the updated graph using the `checkpoint-audit` checks.
 
-`save-checkpoint` owns writes. `audit-checkpoint` owns validation. Do not delegate state writing to audit.
+`checkpoint-save` owns writes. `checkpoint-audit` owns validation. Do not delegate state writing to audit.
 
 Required checks:
 

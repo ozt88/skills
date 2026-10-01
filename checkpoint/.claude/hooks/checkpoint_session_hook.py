@@ -296,7 +296,7 @@ def handle_post_compact(session_dir: pathlib.Path, hook_input: dict) -> dict:
 
     message = (
         "PostCompact occurred. A checkpoint review is pending. "
-        "The next UserPromptSubmit hook will inject `review-checkpoint` context before the agent continues."
+        "The next UserPromptSubmit hook will inject `checkpoint-review` context before the agent continues."
     )
     return {"continue": True, "systemMessage": message, "suppressOutput": True}
 
