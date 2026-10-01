@@ -30,7 +30,7 @@ chmod +x "$TARGET_HOOK"
 echo "✓ Hook script: $TARGET_HOOK"
 
 # 2. Install skills
-for skill in checkpoint-save checkpoint-review checkpoint-plan checkpoint-next checkpoint-audit checkpoint-viz; do
+for skill in checkpoint-save checkpoint-review checkpoint-plan checkpoint-next checkpoint-audit; do
   mkdir -p "$SKILLS_DIR/$skill"
   cp "$REPO_ROOT/skills/$skill/SKILL.md" "$SKILLS_DIR/$skill/SKILL.md"
   echo "✓ Skill: $skill"

@@ -167,8 +167,7 @@
       <div class="tldr" id="tldr">
         <b>TL;DR</b> — 긴 세션의 context rot와 비대해지는 handoff 문서 문제를 해결합니다.
         작업을 <b>DAG 그래프</b>로 저장해 새 세션에서 필요한 노드 하나만 로드합니다.
-        PostCompact 후 자동으로 review를 주입하는 Hook 4개가 함께 동작하고,
-        <b>/checkpoint-viz</b>로 그래프 전체를 인터랙티브 HTML 대시보드로 시각화할 수 있습니다.
+        PostCompact 후 자동으로 review를 주입하는 Hook 4개가 함께 동작합니다.
       </div>
     </header>
 
@@ -348,11 +347,6 @@
         <div class="cmd">/checkpoint-audit</div>
         <div class="role">그래프 유효성 검사 (오래된 상태·깨진 의존성·충돌 탐지)</div>
         <div class="when">오랜 시간 후 재개 전 · 상태 불일치가 의심될 때</div>
-      </div>
-      <div class="skill-card">
-        <div class="cmd">/checkpoint-viz</div>
-        <div class="role">그래프를 인터랙티브 HTML 대시보드로 렌더링. DAG 뷰(드래그 패닝·줌), 노드 디테일 패널, CP-ADR 결정 목록을 단일 파일로 출력</div>
-        <div class="when">진행 상황을 한눈에 파악할 때 · 그래프를 공유할 때 · 의존성 구조를 시각적으로 검토할 때</div>
       </div>
     </div>
 
@@ -814,7 +808,6 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
         <button class="on" data-t="0">① context 경고 시</button>
         <button data-t="1">② 큰 작업 사전 분할</button>
         <button data-t="2">③ 오래된 그래프 재개</button>
-        <button data-t="3">④ 진행 상황 시각화</button>
       </div>
 
       <div class="tabpane on">
@@ -867,19 +860,6 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
 <span class="cm"># → 수정된 그래프에서 Ready 노드 선택</span></pre>
       </div>
 
-      <div class="tabpane">
-        <p style="font-size:14px; color:var(--muted); margin-bottom:12px;">그래프 진행 상황을 시각적으로 파악하거나 공유할 때</p>
-        <pre><span class="cm"># 현재 그래프를 HTML 대시보드로 렌더링</span>
-/checkpoint-viz
-
-<span class="cm"># → .viz/checkpoint-&lt;slug&gt;.html 생성
-# DAG 뷰: 노드 의존성 · 상태 색상 · 드래그 패닝 · +/− 줌
-# 디테일 패널: 노드 클릭 → Goal / Snapshot / Output Contract
-# CP-ADR 섹션: 결정 사항 목록</span>
-
-<span class="cm"># 여러 그래프가 있는 경우 슬러그 지정</span>
-/checkpoint-viz auth-rollout</pre>
-      </div>
     </div>
 
   </main>

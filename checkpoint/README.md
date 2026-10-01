@@ -80,7 +80,7 @@ because they live in different nodes.
 
 ---
 
-## The Six Skills
+## The Five Skills
 
 | Skill | Role |
 |---|---|
@@ -89,7 +89,6 @@ because they live in different nodes.
 | `/checkpoint-plan` | Split remaining work into independent Ready nodes with dependencies. Reads hook evidence so the design reflects reality. |
 | `/checkpoint-next` | In a fresh session, pick the next Ready node and load the minimum context. |
 | `/checkpoint-audit` | Validate the graph (stale state, broken deps, status conflicts) before resuming after a long pause. |
-| `/checkpoint-viz` | Render the graph as an interactive single-file HTML dashboard (DAG, node detail panel, CP-ADR list). |
 
 ---
 
@@ -190,8 +189,7 @@ checkpoint/
 │  ├─ checkpoint-save/
 │  ├─ checkpoint-plan/
 │  ├─ checkpoint-next/
-│  ├─ checkpoint-audit/
-│  └─ checkpoint-viz/
+│  └─ checkpoint-audit/
 ├─ hooks/
 │  ├─ checkpoint_session_hook.py
 │  └─ requirements.example.toml
@@ -249,7 +247,7 @@ work, optionally citing relevant entries from `DECISIONS.md`.
 
 ## Install
 
-Each installer is a single bash script that installs the six skills, the hook
+Each installer is a single bash script that installs the five skills, the hook
 script, and the hook configuration in one step. Re-running is safe — managed
 blocks in config files are replaced on each run.
 
