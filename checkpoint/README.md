@@ -1,303 +1,128 @@
 # Checkpoint
 
-Checkpoint is a context-management workflow for long-running AI coding sessions.
-It saves work as a small DAG of nodes so that a new session can load only the slice it needs, instead of replaying every previous conversation.
+Checkpoint keeps a resumable ledger of multi-session work for AI coding agents, so you can `/clear` at every work boundary without losing decisions or progress.
 
 Supported runtimes: **Claude Code** and **Codex**.
 
-> **Visual intro:** [docs/intro.html](./docs/intro.html) — interactive walkthrough of the context-rot problem, existing approaches, Checkpoint's mechanisms, and the day-by-day workflow. Open with VS Code's *Show Preview* or any browser.
+> **Visual intro (Korean):** [docs/intro.html](./docs/intro.html). Open it with VS Code's *Show Preview* or any browser.
 
 ---
 
-## The Problem: Context Rot
+## Why
 
-LLM performance degrades non-linearly as input length grows. Chroma's
-[Context Rot](https://github.com/chroma-core/context-rot) experiments show that
-the common assumption "the 10,000th token is handled as reliably as the 100th"
-does not hold in practice across NIAH variants, LongMemEval, and repeated-word
-recall.
+Claude Code's [best practices](https://code.claude.com/docs/en/best-practices) start from one constraint: the context window fills up fast, and performance degrades as it fills. The recommended fix is to `/clear` between unrelated tasks, and to `/clear` after correcting the same problem twice instead of piling more corrections into a polluted context. Chroma's [Context Rot](https://github.com/chroma-core/context-rot) experiments show the same degradation.
 
-When you collaborate with a coding agent across many sessions, this shows up as:
+What makes people hesitate to `/clear` is losing what the session decided. Checkpoint removes that cost. Before clearing, it saves the results (not the conversation) as small nodes on disk; the next session loads one node instead of the previous chat.
 
-| Symptom | What it looks like |
-|---|---|
-| Early-context forgetting | Decisions and constraints from the start of the session fade; rejected directions get re-suggested. |
-| Retrieval accuracy drop | Finding the right piece of information inside a long input becomes unreliable. |
-| Cross-topic interference | Multiple subjects accumulate in one context and bleed into each other. |
-| Inconsistency | The model contradicts patterns it established earlier in the same session. |
+## How it differs from built-in features
 
----
-
-## Existing Approaches and Their Gaps
-
-Several common approaches partially address this. None of them cover the case
-where work spans several sessions and branches into multiple follow-ups.
-
-| Approach | What it gives you | Where it falls short |
+| Feature | What it keeps | Why it is not enough here |
 |---|---|---|
-| **Compact** (built-in) | Auto-summarizes when context fills up. | Lossy. You cannot tell what was dropped. Repeated compacts thin out early decisions. State cannot be restored across session boundaries. |
-| **HANDOFF.md** | Explicit end-of-session summary. | Overwritten each session, so older history is lost. Reloaded in full at resume → context bloat. No structure for branching follow-up work. |
-| **Pre-planned milestones** (e.g. GSD) | Decomposes a large goal into phases up front. | Pre-plan drifts from reality; direction changes force rewriting the whole plan. No built-in handling for context across sessions. |
+| `/rewind` (officially "Checkpointing") | conversation and file states inside one session | it is undo, not a handoff between sessions |
+| `/resume`, `/rename` | the whole session | resuming brings back the failed attempts too |
+| Auto memory, `CLAUDE.md` | facts, preferences, rules | no place for in-flight work and its decisions |
+| Compaction | a lossy summary | you cannot tell what was dropped |
+| **Checkpoint** | per-branch results (Output Contracts) and decisions | the next session loads one node |
 
-The common gap: when one finished task spawns *multiple, unrelated follow-ups*,
-all of them stay in the same document and pollute every subsequent session.
-
----
-
-## Checkpoint's Approach
-
-Work is stored as a DAG of nodes on the filesystem. A new session reads
-`index.md` and loads only the node it is about to execute plus the Output
-Contracts of its direct dependencies.
-
-Three core mechanisms:
-
-1. **Node-level separation.** Completed work is compressed into an Output
-   Contract (the result, not the conversation) and stored as a node. Rejected
-   options, failed attempts, and intermediate discussion end with the session.
-2. **Branching of follow-up work.** `checkpoint-plan` turns "what's left"
-   into independent nodes — one per concern — connected by dependencies.
-   Whichever branch you pick up next, only its node is loaded.
-3. **Hook-recorded evidence + incremental replanning.** `PreCompact` /
-   `PostCompact` hooks preserve the pre-compact work flow as a rollup and
-   inject a review reminder afterwards. `checkpoint-plan` reads that evidence
-   so its node design reflects what actually happened, not what was planned a
-   week ago.
-
-### Why it changes the resume cost
-
-Day-by-day comparison for an auth-rollout example (auth-service →
-user-service / admin-panel / api-gateway):
-
-| Day | Working on | HANDOFF.md initial context | Checkpoint initial context |
-|---|---|---|---|
-| Day 1 | auth-service | 0 | 0 |
-| Day 2 | user-service | ~5,000 tokens (full prior session) | ~300 tokens (node-b + node-a Output Contract) |
-| Day 3 | admin-panel | ~9,500 tokens (Day 1+2 accumulated) | ~500 tokens (node-c + node-a Output Contract) |
-
-Working on admin-panel on Day 3 does not load Day 2's user-service discussion,
-because they live in different nodes.
+Despite the name, this project is unrelated to Claude Code's `/rewind` checkpoints.
 
 ---
 
-## The Five Skills
+## Usage
 
-| Skill | Role |
+One skill, `checkpoint`, with five subcommands:
+
+| Subcommand | Use it to |
 |---|---|
-| `/checkpoint-review` | Diagnose the current session. Decide *continue or save*. Hook-injected after compact; usable manually too. |
-| `/checkpoint-save` | Persist completed work as Done nodes with Output Contracts. Conversation noise is discarded. |
-| `/checkpoint-plan` | Split remaining work into independent Ready nodes with dependencies. Reads hook evidence so the design reflects reality. |
-| `/checkpoint-next` | In a fresh session, pick the next Ready node and load the minimum context. |
-| `/checkpoint-audit` | Validate the graph (stale state, broken deps, status conflicts) before resuming after a long pause. |
+| `/checkpoint review` | decide whether the session hit a work boundary. Claude runs it on its own at boundaries. |
+| `/checkpoint save` | record work this session performed as nodes |
+| `/checkpoint plan` | split unstarted future work into nodes (proposes first, writes after approval) |
+| `/checkpoint next` | in a fresh session, open the next node with minimal context |
+| `/checkpoint audit` | check whether a graph can be trusted before resuming it |
+
+In Codex, mention the skill the way Codex does (for example `$checkpoint save`).
+
+### The cycle
+
+```text
+work ── boundary? ── /checkpoint review ── continue
+                                  └──────── /checkpoint save ── /checkpoint plan (if needed) ── /clear
+new session ── /checkpoint next ── work ...
+```
+
+A **work boundary** is one of:
+
+- moving to a task unrelated to the work so far
+- correcting the same problem more than twice
+- finishing a task when the next request is a different slice
+
+Session length and token count alone are not boundaries. Checkpoint does not ask you to stop work early.
+
+### When compaction happens first
+
+If a session reaches compaction without hitting a boundary, a single `SessionStart(compact)` hook asks the agent to run `review` and passes the transcript path. `review` uses `scripts/extract_prompts.py` to read only the user prompts from before the compaction. Nothing else is recorded.
 
 ---
 
-## Hook Automation
+## Files
 
-Install the hooks and Claude/Codex will tell you when it is time to save —
-you don't have to watch token usage yourself.
-
-### How risk is judged
-
-`/checkpoint-review` combines three signals to decide whether the current
-session should be closed:
-
-1. **Session length** — accumulated prompt count.
-2. **Compact accumulation** — `compact_count` (both auto and manual compacts).
-3. **Prompt flow** — the meaningful one.
-
-The prompt-flow signal is what makes the judgment more than a threshold check.
-The `UserPromptSubmit` hook appends a small record of each user prompt (hash,
-length, lead, tail) to `events.jsonl`. `/checkpoint-review` reads this trail
-to detect patterns like:
-
-- **Topic transition** — implementation → debugging → a different feature.
-- **Branching** — a side concern was discovered mid-task (e.g. "need to bump
-  auth exp to 4h while working on user-service").
-- **Repeating loops** — the same area is revisited multiple times.
-- **Natural completion** — a task wrapped up cleanly (a good place to cut a
-  node).
-
-The decision blends all three signals; raw token usage alone is not the trigger.
-
-### The automation loop
-
-```text
-compact happens  →  hooks mark "pending review"  →  next user prompt
-              →  Claude/Codex auto-runs /checkpoint-review
-              →  if risky, suggests /checkpoint-save
-```
-
-Manual `/compact` triggers the same flow — both go through `PreCompact` /
-`PostCompact`.
-
-### What hooks write (non-authoritative)
-
-Hooks only record evidence. They do not touch checkpoint graph state.
-
-```text
-.checkpoint/sessions/<session_id>/
-  session.json
-  state.json
-  events.jsonl
-  rollups/
-    001-post-compact.md
-```
-
-Graph state under `.checkpoint/graphs/**` is only ever written by
-`/checkpoint-save`, `/checkpoint-plan`, `/checkpoint-next`, and
-`/checkpoint-audit`.
-
----
-
-## Lifecycle
-
-```text
-active session
-  ├─ hooks record events.jsonl / state.json / pre-compact / post-compact
-  ├─ on compact: review reminder injected to the next prompt
-  │
-  └─ /checkpoint-review     decide: continue or save
-        │
-        ├─ continue
-        │
-        └─ /checkpoint-save  Done nodes with Output Contracts
-              │
-              └─ /checkpoint-plan  remaining work split into independent
-                    │              Ready nodes (by concern)
-                    │
-                    └─ /clear
-
-new session
-  └─ /checkpoint-next   load: index.md + selected node + deps' Output Contracts
-                        (other branches stay unloaded)
-```
-
-`/checkpoint-plan` is skippable only when `/checkpoint-save` already produced
-clear executable next nodes. If the next session would otherwise need a large
-handoff to know what to do, run `/checkpoint-plan` before clearing.
-
----
-
-## Repository Layout
-
-```text
-checkpoint/
-├─ README.md                  ← this file
-├─ skills/
-│  ├─ checkpoint-review/
-│  ├─ checkpoint-save/
-│  ├─ checkpoint-plan/
-│  ├─ checkpoint-next/
-│  └─ checkpoint-audit/
-├─ hooks/
-│  ├─ checkpoint_session_hook.py
-│  └─ requirements.example.toml
-├─ scripts/
-│  ├─ install-claude.sh
-│  └─ install-codex.sh
-├─ .claude/                   ← Claude Code integration assets
-└─ .codex/                    ← Codex integration assets
-```
-
-Graphs and session evidence created during usage:
+Graphs live in the project being worked on:
 
 ```text
 <project>/.checkpoint/graphs/<slug>/
-  index.md
-  DECISIONS.md
-  nodes/
-    N1-...
-    N2-...
-
-<project>/.checkpoint/sessions/<session_id>/
-  session.json
-  state.json
-  events.jsonl
-  rollups/
-    001-post-compact.md
+  index.md        routing and status only
+  DECISIONS.md    graph-wide decisions (checkpoint-local ADRs)
+  nodes/          one file per node: goal, Progress Snapshot or Output Contract
+<project>/.checkpoint/archive/graphs/<slug>/   graphs with nothing left to do
 ```
 
----
+The full format (status values, edges, node template, checks) is in [skills/checkpoint/format.md](./skills/checkpoint/format.md). `scripts/check_graph.py` runs the mechanical checks.
 
-## File Roles
+Repository layout:
 
-### `index.md`
-
-Routing and status only. Answers:
-
-- Which nodes exist, and what is their status (`Ready` / `In Progress` /
-  `Done` / `Blocked` / `Parked` / `Dropped`).
-- Which node should be picked next.
-- Which dependencies block what.
-
-Not a context dump.
-
-### `DECISIONS.md`
-
-Checkpoint-local ADRs — durable decisions, rejected directions, do-not-reopen
-constraints that span multiple nodes. Does not duplicate project docs.
-
-### `nodes/*.md`
-
-Executable resume units. Each node contains just enough to do that unit of
-work, optionally citing relevant entries from `DECISIONS.md`.
+```text
+checkpoint/
+├─ skills/checkpoint/
+│  ├─ SKILL.md            routing and shared rules
+│  ├─ format.md           graph format
+│  ├─ save.md  plan.md  next.md  review.md  audit.md
+│  ├─ scripts/            check_graph.py, extract_prompts.py
+│  └─ agents/openai.yaml  Codex UI metadata
+├─ hooks/checkpoint_compact_hook.py
+├─ scripts/install-claude.sh, install-codex.sh
+└─ docs/intro.html
+```
 
 ---
 
 ## Install
 
-Each installer is a single bash script that installs the five skills, the hook
-script, and the hook configuration in one step. Re-running is safe — managed
-blocks in config files are replaced on each run.
-
-Requirements: bash, `python3` on `PATH`.
-
-**Claude Code:**
+Requirements: bash and `python3` on `PATH`.
 
 ```bash
-bash scripts/install-claude.sh           # ~/.claude/ (global)
-bash scripts/install-claude.sh --local   # ./.claude/ (project-local)
+bash scripts/install-claude.sh           # Claude Code, global (~/.claude/)
+bash scripts/install-claude.sh --local   # Claude Code, current project (./.claude/)
+bash scripts/install-codex.sh            # Codex (~/.codex/)
 ```
 
-**Codex:**
+Each installer copies the skill and the hook and registers one hook, `SessionStart` with the `compact` matcher. Re-running is safe. Restart the runtime afterwards; in Codex, approve the hook with `/hooks`.
 
-```bash
-bash scripts/install-codex.sh            # ~/.codex/
-```
+The skill works without the hook. The hook only covers sessions that reach compaction before a boundary.
 
-After installing, restart the runtime and approve the hook when prompted.
+### Upgrading from the six-skill version
 
-> The skills alone are usable without hooks, but **hooks are strongly
-> recommended**. Without them you have to call `/checkpoint-review` yourself
-> at the right moment; with them, the runtime auto-runs review after compact
-> and proposes `/checkpoint-save` when the session is risky.
+The installers remove the old `checkpoint-*` skills, the per-prompt logging hook, and its four hook registrations. Existing graphs keep working; the format is unchanged except that status values gained `Handed off`.
 
-### Verifying
+Two things the installers leave alone:
 
-After restart:
-
-- `SessionStart` initializes `.checkpoint/sessions/<session_id>/session.json`.
-- `UserPromptSubmit` appends to `events.jsonl`.
-- `PreCompact` records the compact boundary.
-- `PostCompact` records the compact and marks review as pending.
-- The next `SessionStart` (`source: "compact"`) or `UserPromptSubmit` injects
-  the review reminder via `hookSpecificOutput.additionalContext`.
-
-If `python3` is not on `PATH`, install it first (or use a Python virtualenv
-that exposes `python3`). Hook commands are written with `python3` explicitly,
-so a `python`-only environment will fail until that name resolves.
+- `.checkpoint/sessions/` directories in your projects. They held prompt logs and are no longer read; delete them.
+- Hook entries an earlier Codex install wrote to `~/.codex/requirements.toml`. The installer warns if it finds them; remove them by hand.
 
 ---
 
-## Design Principles
+## Design principles
 
-- **Don't build better giant handoffs. Make handoffs unnecessary.**
-  Resume should mean "read the graph and load the next node," not "load the
-  whole previous session."
-- **Hooks record. Skills decide.** Hooks write only evidence. Authoritative
-  graph state is only ever written by the skills.
-- **Result, not conversation.** Output Contracts carry the decision result;
-  rejected options and intermediate exploration end with the session.
-- **Separate branches, separate nodes.** A finished task with three follow-ups
-  becomes three nodes — so working on one never drags in the other two.
+- **Make handoffs unnecessary instead of better.** Resume means reading the graph and loading the next node, not replaying the previous session.
+- **Results, not conversation.** Output Contracts carry what was decided and produced; exploration ends with the session.
+- **One branch per node.** A finished task with three follow-ups becomes three nodes, so working on one never drags in the other two.
+- **Detect boundaries in the conversation; keep the hook as a backstop.** The hook records nothing and only reacts to compaction.

@@ -147,8 +147,8 @@
     <a href="#existing" class="l2">HANDOFF.md</a>
     <a href="#existing" class="l2">GSD Milestone</a>
     <a href="#concept">Checkpoint의 접근</a>
-    <a href="#skills" class="l2">6개 스킬</a>
-    <a href="#hooks">Hook 자동화</a>
+    <a href="#skills" class="l2">하위 명령</a>
+    <a href="#hooks">저장 시점과 Hook</a>
     <a href="#workflow">실사용 워크플로</a>
     <a href="#usage">빠른 참조</a>
   </nav>
@@ -167,7 +167,7 @@
       <div class="tldr" id="tldr">
         <b>TL;DR</b> — 긴 세션의 context rot와 비대해지는 handoff 문서 문제를 해결합니다.
         작업을 <b>DAG 그래프</b>로 저장해 새 세션에서 필요한 노드 하나만 로드합니다.
-        PostCompact 후 자동으로 review를 주입하는 Hook 4개가 함께 동작합니다.
+        작업 경계(주제 전환, 같은 수정 반복, 작업 완료)에서 저장을 제안하므로 부담 없이 <code>/clear</code>할 수 있습니다.
       </div>
     </header>
 
@@ -310,41 +310,41 @@
       <div class="mech-card">
         <div class="mech-num">메커니즘 2</div>
         <div class="mech-title">후속 작업의 갈래 분리</div>
-        <div class="mech-body"><code>/checkpoint-plan</code>이 남은 작업을 <b>종류별로 독립 노드</b>로 만들고 의존성 그래프로 연결합니다. 어느 갈래를 작업하든 그 노드에 필요한 맥락만 정확히 주입돼, 무관한 후속 작업의 토론이 간섭하지 않습니다.</div>
+        <div class="mech-body"><code>/checkpoint plan</code>이 남은 작업을 <b>종류별로 독립 노드</b>로 만들고 의존성 그래프로 연결합니다. 어느 갈래를 작업하든 그 노드에 필요한 맥락만 정확히 주입돼, 무관한 후속 작업의 토론이 간섭하지 않습니다.</div>
       </div>
       <div class="mech-card">
         <div class="mech-num">메커니즘 3</div>
-        <div class="mech-title">Hook 기반 자동 기록 + 점진적 재계획</div>
-        <div class="mech-body"><b>PreCompact/PostCompact hook</b>이 압축 직전 작업 흐름을 rollup으로 구조화 보존하고, 압축 후 review를 자동 주입합니다. plan은 이 기록을 읽고 <b>지금 시점의 현실</b>을 반영한 노드만 새로 생성합니다.</div>
+        <div class="mech-title">작업 경계 감지 + 점진적 재계획</div>
+        <div class="mech-body">Claude가 대화 안에서 <b>작업 경계</b>(주제 전환, 같은 수정 반복, 작업 완료)를 알아채고 저장을 제안합니다. 경계를 놓친 채 compact가 오면 hook 하나가 받쳐 줍니다. plan은 실제로 한 작업을 바탕으로 <b>지금 시점의 현실</b>을 반영한 노드만 새로 만듭니다.</div>
       </div>
     </div>
 
-    <h3 id="skills" style="margin-top:32px;">6개 스킬</h3>
-    <p>위 메커니즘은 6개 슬래시 커맨드로 사용합니다. <code>/checkpoint-review</code>는 Compact 후 hook이 자동으로 안내하므로 직접 호출하지 않아도 됩니다.</p>
+    <h3 id="skills" style="margin-top:32px;">하위 명령</h3>
+    <p>스킬은 <code>checkpoint</code> 하나이고 하위 명령 다섯 개로 씁니다. <code>/checkpoint review</code>는 Claude가 작업 경계에서 스스로 실행하므로 직접 부르지 않아도 됩니다.</p>
 
     <div class="skills-grid">
       <div class="skill-card">
-        <div class="cmd">/checkpoint-review</div>
+        <div class="cmd">/checkpoint review</div>
         <div class="role">세션 상태 진단 — 계속할지, 저장하고 닫을지 판단</div>
-        <div class="when">Compact 후 자동 주입 · 세션이 길어질 때 · 주제가 바뀔 때</div>
+        <div class="when">주제가 바뀔 때, 같은 수정이 반복될 때, 작업 하나가 끝났을 때, compact 직후</div>
       </div>
       <div class="skill-card">
-        <div class="cmd">/checkpoint-save</div>
+        <div class="cmd">/checkpoint save</div>
         <div class="role">현재 세션 작업물을 그래프 노드로 저장</div>
-        <div class="when">세션을 닫기 전 · context 경고가 뜰 때</div>
+        <div class="when">review가 경계를 짚었을 때, <code>/clear</code> 하기 전</div>
       </div>
       <div class="skill-card">
-        <div class="cmd">/checkpoint-plan</div>
-        <div class="role">hook이 기록한 증거(events, rollups)를 읽어 남은 작업을 노드로 생성. 하나의 작업을 여러 노드로 분할 가능</div>
+        <div class="cmd">/checkpoint plan</div>
+        <div class="role">아직 시작하지 않은 남은 작업을 노드로 설계. 제안을 보여 주고 승인을 받은 뒤 씀</div>
         <div class="when">save 직후 남은 작업이 여러 세션에 걸칠 때</div>
       </div>
       <div class="skill-card">
-        <div class="cmd">/checkpoint-next</div>
+        <div class="cmd">/checkpoint next</div>
         <div class="role">그래프에서 다음 Ready 노드 선택 + 최소 context 로드</div>
         <div class="when">새 세션 시작 시 · "어디서부터?" 할 때</div>
       </div>
       <div class="skill-card">
-        <div class="cmd">/checkpoint-audit</div>
+        <div class="cmd">/checkpoint audit</div>
         <div class="role">그래프 유효성 검사 (오래된 상태·깨진 의존성·충돌 탐지)</div>
         <div class="when">오랜 시간 후 재개 전 · 상태 불일치가 의심될 때</div>
       </div>
@@ -359,7 +359,7 @@
         <tr>
           <td>Compact</td>
           <td>손실 압축이라 무엇이 사라졌는지 모름. 반복될수록 초반 결정이 옅어짐</td>
-          <td><b>메커니즘 3</b> — hook이 압축 전 흐름을 구조화 보존, 압축 후 review 자동 주입</td>
+          <td><b>메커니즘 3</b>: compact까지 가기 전에 작업 경계에서 저장하고 <code>/clear</code></td>
         </tr>
         <tr>
           <td>HANDOFF.md</td>
@@ -369,7 +369,7 @@
         <tr>
           <td>HANDOFF.md</td>
           <td>후속 작업 갈래를 한 문서에 모아둬, 어느 갈래를 작업해도 다른 갈래 맥락이 따라옴</td>
-          <td><b>메커니즘 2</b> — <code>/checkpoint-plan</code>이 갈래를 독립 노드로 분리</td>
+          <td><b>메커니즘 2</b> — <code>/checkpoint plan</code>이 갈래를 독립 노드로 분리</td>
         </tr>
         <tr>
           <td>GSD Milestone</td>
@@ -416,14 +416,14 @@
       </div>
       <div class="cmp-side good">
         <span class="tag">Checkpoint</span>
-        <code>/checkpoint-save</code>는 <b>완료된 결과만</b> Output Contract에 남깁니다:
+        <code>/checkpoint save</code>는 <b>완료된 결과만</b> Output Contract에 남깁니다:
         <code style="display:block;margin:6px 0;padding:6px 10px;background:var(--bg);border-radius:4px;font-size:11.5px;line-height:1.5;">node-a (auth-service) · Done<br>"JWT, exp 1h, refresh token 사용.<br>&nbsp;/v1/auth/* 라우트 추가."</code>
         거부된 OAuth 토론·실패 시도는 세션과 함께 사라집니다.
         <div class="punch">→ 산출물 ≈ 약 80 토큰 · 결과만 보존</div>
       </div>
     </div>
 
-    <!-- Day 1 — /checkpoint-plan, 갈래 분리 (핵심) -->
+    <!-- Day 1 — /checkpoint plan, 갈래 분리 (핵심) -->
     <div class="cmp-row">
       <div class="cmp-day">
         <div class="d-num">Day 1 마감</div>
@@ -436,7 +436,7 @@
       </div>
       <div class="cmp-side good">
         <span class="tag">Checkpoint</span>
-        <code>/checkpoint-plan</code>이 남은 작업을 <b>종류별로 노드로 분리</b>합니다:
+        <code>/checkpoint plan</code>이 남은 작업을 <b>종류별로 노드로 분리</b>합니다:
         <code style="display:block;margin:6px 0;padding:6px 10px;background:var(--bg);border-radius:4px;font-size:11.5px;line-height:1.6;">node-b · user-service · Ready<br>node-c · api-gateway · Ready<br>node-d · admin-panel · Ready<br><span style="color:var(--muted);">모두 node-a에 의존</span></code>
         각 노드는 자신의 작업에 필요한 맥락만 정의합니다. <b>이 분리가 다음 세션의 context를 결정짓는 핵심 단계</b>입니다.
         <div class="punch">→ 후속 작업 갈래를 그래프 구조로 명시적 분리</div>
@@ -457,7 +457,7 @@
       </div>
       <div class="cmp-side good">
         <span class="tag">Checkpoint</span>
-        <code>/checkpoint-next</code>가 <b>node-b만 선택해 로드</b>하고 node-a의 Output Contract를 함께 주입합니다. api-gateway나 admin-panel 노드 내용은 <b>전혀 들어오지 않습니다</b>.
+        <code>/checkpoint next</code>가 <b>node-b만 선택해 로드</b>하고 node-a의 Output Contract를 함께 주입합니다. api-gateway나 admin-panel 노드 내용은 <b>전혀 들어오지 않습니다</b>.
         <div class="ctx-meter" style="color:var(--badge-green-fg);">초기 context <div class="ctx-bar"><i style="width:4%"></i></div> 300 토큰</div>
         <div class="punch">→ user-service 작업에 필요한 맥락만 정확히 주입</div>
       </div>
@@ -477,7 +477,7 @@
       </div>
       <div class="cmp-side good">
         <span class="tag">Checkpoint</span>
-        <code>/checkpoint-next node-d</code>가 admin-panel 노드와 node-a의 Output Contract만 로드합니다. user-service 구현 토론은 <b>다른 노드의 일이라 들어오지 않습니다</b>. 거부된 OAuth 옵션 자체가 그래프 어디에도 없어서 <b>다시 제안되는 사고가 구조적으로 불가능</b>합니다.
+        <code>/checkpoint next node-d</code>가 admin-panel 노드와 node-a의 Output Contract만 로드합니다. user-service 구현 토론은 <b>다른 노드의 일이라 들어오지 않습니다</b>. 거부된 OAuth 옵션 자체가 그래프 어디에도 없어서 <b>다시 제안되는 사고가 구조적으로 불가능</b>합니다.
         <div class="ctx-meter" style="color:var(--badge-green-fg);">초기 context <div class="ctx-bar"><i style="width:6%"></i></div> 500 토큰</div>
         <div class="punch">→ 어느 갈래를 작업해도 첫날과 동일한 가벼움</div>
       </div>
@@ -616,32 +616,25 @@
 
     <!-- ── 스킬 ── -->
     <!-- ── Hook ── -->
-    <h2 id="hooks">Hook 자동화</h2>
-    <p style="font-size:15px;line-height:1.65;"><b>스킬과 Hook을 함께 설치하면 사용자가 신경 쓰지 않아도 됩니다.</b> Context rot이 위험 수준에 도달했을 때 Claude가 먼저 알려주고 <code>/checkpoint-save</code>를 제안합니다. 세션을 닫을 타이밍을 사용자가 매번 판단할 필요가 없습니다.</p>
-
-    <h3 style="margin-top:24px;">위험 수준은 어떻게 판단하나</h3>
-    <p><code>/checkpoint-review</code> 스킬이 다음 <b>세 가지 신호</b>를 종합해 위험 수준을 판단합니다 — <b>세션 길이</b>, <b>compact 누적 횟수</b>, 그리고 <b>프롬프트 흐름</b>. 앞의 두 신호는 단순 카운트이지만, 핵심은 세 번째인 프롬프트 흐름입니다.</p>
+    <h2 id="hooks">저장 시점과 Hook</h2>
+    <p style="font-size:15px;line-height:1.65;">Claude Code 공식 가이드는 컨텍스트가 찰수록 성능이 떨어진다고 보고, 관계없는 작업 사이에 <code>/clear</code>하라고 권합니다. <b>저장 시점은 이 가이드의 실패 패턴을 그대로 씁니다.</b> 토큰 수나 세션 길이는 신호가 아닙니다.</p>
 
     <div class="callout" style="margin:16px 0 8px;">
-      <span class="ico">📜</span>
+      <span class="ico">🧭</span>
       <div>
-        <b>프롬프트 흐름</b><br>
-        Hook이 <code>UserPromptSubmit</code> 시점마다 사용자 프롬프트의 해시·길이·앞뒤 일부 텍스트를 <code>events.jsonl</code>에 누적해둡니다. Review는 이 기록을 통째로 읽어 <b>지금까지의 대화가 어떤 흐름이었는지</b> 재구성합니다.<br><br>
-        이 흐름에서 다음과 같은 패턴이 감지되면 위험 신호로 간주합니다:
+        <b>작업 경계 신호</b>: Claude가 대화 안에서 직접 알아챕니다.
         <ul style="padding-left:18px;margin-top:6px;line-height:1.7;">
-          <li><b>주제 전환</b> — 코드 구현 → 디버깅 → 다른 기능 등 관심사가 바뀌는 지점</li>
-          <li><b>작업 분기</b> — 한 작업 도중 발견된 다른 갈래(예: "auth 작업 중 user-service exp 조정 필요" 발견)</li>
-          <li><b>반복·되돌이</b> — 같은 영역을 여러 번 오가는 흐름 (context rot 가능성)</li>
-          <li><b>완료 지점</b> — 한 작업의 자연스러운 마무리 (노드를 끊기 좋은 경계)</li>
+          <li><b>주제 전환</b>: 지금까지의 작업과 관계없는 일로 넘어감</li>
+          <li><b>같은 수정 반복</b>: 같은 문제를 두 번 넘게 고침. 실패한 시도가 컨텍스트를 채운 상태</li>
+          <li><b>작업 완료</b>: 한 작업이 끝나고 다음 요청이 다른 갈래</li>
         </ul>
-        단순 토큰 카운트로는 잡히지 않는 <b>"지금이 세션을 끊고 노드를 정리하기 좋은 시점인가"</b>를 의미 기반으로 판단할 수 있게 해주는 핵심 신호입니다.
+        신호가 보이면 <code>/checkpoint review</code>가 지금 흐름을 짧게 요약하고, 여기서 계속할지 저장 후 <code>/clear</code>할지 묻습니다.
       </div>
     </div>
 
-
-<div class="callout" style="margin:20px 0 24px;">
-      <span class="ico">🤖</span>
-      <div>Compact가 발생하면 Hook이 자동으로 점검 필요 상태를 표시하고, 다음 사용자 메시지 차례에 Claude가 <code>/checkpoint-review</code>를 자체 실행해 위험하면 <code>/checkpoint-save</code>를 제안합니다. 사용자는 평소처럼 작업하기만 하면 됩니다.</div>
+    <div class="callout" style="margin:20px 0 24px;">
+      <span class="ico">🪝</span>
+      <div><b>Hook은 보조 경로 하나뿐입니다.</b> 경계를 놓친 채 compact가 일어나면 <code>SessionStart(compact)</code> hook이 review를 요청하고 <code>transcript_path</code>를 넘깁니다. review는 스크립트로 compact 이전 사용자 프롬프트만 뽑아 봅니다. 프롬프트를 따로 기록하지 않으며 Claude Code와 Codex에서 같은 hook을 씁니다.</div>
     </div>
 
     <!-- ── 실사용 워크플로 ── -->
@@ -686,11 +679,11 @@
           <div class="wf-card">
             <div class="wf-head">
               <span class="wf-day">Day 1 · 진행 중</span>
-              <span class="wf-title">Hook이 점검 시점을 자동 안내</span>
+              <span class="wf-title">Claude가 작업 경계를 짚음</span>
             </div>
-            <div class="wf-cmd auto">(자동) PreCompact / PostCompact → UserPromptSubmit</div>
+            <div class="wf-cmd auto">(자동) /checkpoint review</div>
             <div class="wf-body">
-              auth-service 작업 중 compact가 발생하면 Hook이 pending review 상태를 기록합니다. 다음 사용자 메시지 시점에 Claude가 자동으로 <code>/checkpoint-review</code>를 실행해 세션 상태를 진단합니다.
+              auth-service 핵심 로직을 끝내고 사용자가 다른 서비스 이야기를 꺼내자, Claude가 작업 경계로 보고 <code>/checkpoint review</code>를 실행합니다. 경계를 놓친 채 compact가 오면 hook이 같은 점검을 요청합니다.
               <div class="wf-output"><span class="ok">✓</span> auth-service 핵심 로직 완료
 <span class="warn">!</span> 테스트 3개 미작성
 <span class="muted">·</span> 후속 작업: user-service / admin-panel / api-gateway
@@ -700,7 +693,7 @@
         </div>
       </div>
 
-      <!-- 2. /checkpoint-save -->
+      <!-- 2. /checkpoint save -->
       <div class="wf-item">
         <div class="wf-rail"><div class="wf-num s-day1">2</div><div class="wf-vline"></div></div>
         <div>
@@ -709,7 +702,7 @@
               <span class="wf-day">Day 1 · 마감</span>
               <span class="wf-title">완료된 작업을 노드로 저장</span>
             </div>
-            <div class="wf-cmd">/checkpoint-save</div>
+            <div class="wf-cmd">/checkpoint save</div>
             <div class="wf-body">
               현재 세션에서 <b>실제로 완료된 작업만</b> Output Contract로 압축해 그래프에 기록합니다. 거부된 OAuth 토론·실패 시도는 세션과 함께 사라집니다.
               <div class="wf-output">node-a · auth-service · <span class="ok">Done</span>
@@ -722,7 +715,7 @@
         </div>
       </div>
 
-      <!-- 3. /checkpoint-plan (핵심) -->
+      <!-- 3. /checkpoint plan (핵심) -->
       <div class="wf-item">
         <div class="wf-rail"><div class="wf-num s-day1">3</div><div class="wf-vline"></div></div>
         <div>
@@ -732,9 +725,9 @@
               <span class="wf-title">남은 작업을 갈래별 노드로 분리</span>
               <span class="wf-pin">핵심 단계</span>
             </div>
-            <div class="wf-cmd">/checkpoint-plan</div>
+            <div class="wf-cmd">/checkpoint plan</div>
             <div class="wf-body">
-              <code>events.jsonl</code>의 프롬프트 흐름과 save 메모를 읽어 <b>남은 작업을 종류별로 독립 노드</b>로 만듭니다. 다음 세션에서 어느 갈래를 작업하든 그 노드에 필요한 맥락만 정확히 주입됩니다.
+              save가 남긴 다음 작업 메모를 바탕으로 <b>남은 작업을 종류별로 독립 노드</b>로 만듭니다. 다음 세션에서 어느 갈래를 작업하든 그 노드에 필요한 맥락만 정확히 주입됩니다.
               <div class="wf-output">node-b · user-service · <span class="ok">Ready</span>   <span class="muted">(deps: node-a)</span>
 node-c · admin-panel  · <span class="ok">Ready</span>   <span class="muted">(deps: node-a)</span>
 node-d · api-gateway  · <span class="ok">Ready</span>   <span class="muted">(deps: node-a)</span>
@@ -745,7 +738,7 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
         </div>
       </div>
 
-      <!-- 4. /checkpoint-next (Day 2 user-service) -->
+      <!-- 4. /checkpoint next (Day 2 user-service) -->
       <div class="wf-item">
         <div class="wf-rail"><div class="wf-num s-day2">4</div><div class="wf-vline"></div></div>
         <div>
@@ -754,7 +747,7 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
               <span class="wf-day">Day 2 · 새 세션</span>
               <span class="wf-title">user-service 노드 선택 + 최소 context 로드</span>
             </div>
-            <div class="wf-cmd">/checkpoint-next</div>
+            <div class="wf-cmd">/checkpoint next</div>
             <div class="wf-body">
               빈 세션에서 시작. <code>index.md</code> + <code>node-b.md</code> + <b>node-a의 Output Contract만</b> 로드됩니다. admin-panel·api-gateway·테스트 노드 내용은 들어오지 않습니다.
               <div class="wf-output">로드된 context:
@@ -764,13 +757,13 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
 <span class="muted">  (admin-panel·api-gateway 노드는 로드 안 됨)</span>
 
 <span class="ok">→ user-service 작업 시작</span></div>
-              <p style="font-size:12.5px;color:var(--muted);margin-top:6px;">작업이 끝나면 다시 <code>/checkpoint-save</code> → <code>/checkpoint-plan</code>(필요 시) → <code>/clear</code> 사이클 반복.</p>
+              <p style="font-size:12.5px;color:var(--muted);margin-top:6px;">작업이 끝나면 다시 <code>/checkpoint save</code> → <code>/checkpoint plan</code>(필요 시) → <code>/clear</code> 사이클 반복.</p>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 5. /checkpoint-next (Day 3 admin-panel) -->
+      <!-- 5. /checkpoint next (Day 3 admin-panel) -->
       <div class="wf-item">
         <div class="wf-rail"><div class="wf-num s-day3">5</div></div>
         <div>
@@ -779,7 +772,7 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
               <span class="wf-day">Day 3 · 다른 갈래</span>
               <span class="wf-title">admin-panel 노드 작업 — 다른 갈래의 토론은 없음</span>
             </div>
-            <div class="wf-cmd">/checkpoint-next node-c</div>
+            <div class="wf-cmd">/checkpoint next node-c</div>
             <div class="wf-body">
               또 빈 세션. <code>node-c.md</code> + <code>node-a</code>의 Output Contract만 로드. <b>Day 2의 user-service 구현 토론은 다른 노드의 일이라 들어오지 않습니다.</b>
               <div class="wf-output">로드된 context:
@@ -797,7 +790,7 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
 
     <div class="callout" style="margin-top:8px;">
       <span class="ico">⟳</span>
-      <div>실제로 매 세션 반복되는 사이클은 <b>Hook 알림 → review → save → plan → clear → next</b> 다섯 단계입니다. 사용자가 직접 신경 쓰는 명령어는 <code>/checkpoint-save</code>, <code>/checkpoint-plan</code>, <code>/checkpoint-next</code> 세 개뿐이고, 나머지는 Hook이 자동으로 처리합니다.</div>
+      <div>매 세션 반복되는 사이클은 <b>review → save → plan → clear → next</b>입니다. review는 Claude가 작업 경계에서 스스로 실행하고, plan은 남은 작업이 여러 갈래일 때만 씁니다.</div>
     </div>
 
     <!-- ── 사용 예시 ── -->
@@ -805,22 +798,22 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
 
     <div class="tabs" data-tabs>
       <div class="tabbar">
-        <button class="on" data-t="0">① context 경고 시</button>
+        <button class="on" data-t="0">① 작업 경계에서</button>
         <button data-t="1">② 큰 작업 사전 분할</button>
         <button data-t="2">③ 오래된 그래프 재개</button>
       </div>
 
       <div class="tabpane on">
-        <p style="font-size:14px; color:var(--muted); margin-bottom:12px;">Context가 찰 때 — Hook이 자동으로 review를 권고하거나, 직접 실행</p>
-        <pre><span class="cm"># Hook이 주입하거나 직접 호출</span>
-/checkpoint-review
+        <p style="font-size:14px; color:var(--muted); margin-bottom:12px;">다른 주제로 넘어가기 전. Claude가 먼저 제안하거나 직접 실행</p>
+        <pre><span class="cm"># Claude가 경계에서 실행하거나 직접 호출</span>
+/checkpoint review
 
 <span class="cm"># Claude: "현재 세션 요약... 저장하고 닫는 걸 추천합니다"</span>
-/checkpoint-save
+/checkpoint save
 
 <span class="cm"># → .checkpoint/graphs/my-feature/ 생성
 # 새 세션에서</span>
-/checkpoint-next
+/checkpoint next
 
 <span class="cm"># → index.md 확인 → Ready 노드 로드 → 작업 재개</span></pre>
       </div>
@@ -828,7 +821,7 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
       <div class="tabpane">
         <p style="font-size:14px; color:var(--muted); margin-bottom:12px;">3개 서비스에 인증 시스템을 추가해야 하는 경우</p>
         <pre><span class="cm"># 작업 시작 전 그래프 설계</span>
-/checkpoint-plan "인증 시스템 3개 서비스에 추가"
+/checkpoint plan "인증 시스템 3개 서비스에 추가"
 
 <span class="cm"># Claude:
 # node-a: auth-service     [Ready]
@@ -837,18 +830,18 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
 # → .checkpoint/graphs/auth-rollout/index.md 생성</span>
 
 <span class="cm"># 첫 번째 노드 선택</span>
-/checkpoint-next
+/checkpoint next
 <span class="cm"># → node-a 로드, 관련 파일만 context에 포함</span>
 
 <span class="cm"># node-a 완료 후 저장</span>
-/checkpoint-save
+/checkpoint save
 <span class="cm"># → node-a Done, node-b·node-c Blocked → Ready로 전환</span></pre>
       </div>
 
       <div class="tabpane">
         <p style="font-size:14px; color:var(--muted); margin-bottom:12px;">1주일 전 그래프를 재개할 때</p>
         <pre><span class="cm"># 재개 전 유효성 확인</span>
-/checkpoint-audit
+/checkpoint audit
 
 <span class="cm"># Claude:
 # ✗ node-c 의존성 node-b가 Done 처리 안됨
@@ -856,7 +849,7 @@ node-e · auth 테스트   · <span class="ok">Ready</span>   <span class="muted
 # → 수정 권고사항 제시</span>
 
 <span class="cm"># 문제 수정 후 재개</span>
-/checkpoint-next
+/checkpoint next
 <span class="cm"># → 수정된 그래프에서 Ready 노드 선택</span></pre>
       </div>
 
