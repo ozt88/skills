@@ -1,0 +1,4 @@
+interface:
+  display_name: "Checkpoint"
+  short_description: "Save, resume, plan and audit multi-session work graphs."
+  default_prompt: "Review whether this session reached a work boundary; if so, offer to save it as a checkpoint so the context can be cleared."
