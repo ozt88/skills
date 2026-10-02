@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# install-claude.sh — Claude Code global hook installer
-# Counterpart to install-global-hooks.ps1 for Linux/macOS
+# install-claude.sh — install the checkpoint skill and its compaction hook for Claude Code
 #
 # Usage:
 #   bash scripts/install-claude.sh          # global install (~/.claude/)
-#   bash scripts/install-claude.sh --local  # project-local install (.claude/)
+#   bash scripts/install-claude.sh --local  # current project only (./.claude/)
 
 set -euo pipefail
 
@@ -21,85 +20,76 @@ if $GLOBAL; then
   CLAUDE_DIR="$HOME/.claude"
   echo "Global install: $CLAUDE_DIR"
 else
-  CLAUDE_DIR="$REPO_ROOT/.claude"
-  echo "Local install: $CLAUDE_DIR"
+  CLAUDE_DIR="$PWD/.claude"
+  echo "Project install: $CLAUDE_DIR"
 fi
-
-HOOKS_DIR="$CLAUDE_DIR/hooks"
-SETTINGS="$CLAUDE_DIR/settings.json"
-SRC_HOOK="$REPO_ROOT/hooks/checkpoint_session_hook.py"
 
 if ! command -v python3 &>/dev/null; then
   echo "Error: python3 is required." >&2
   exit 1
 fi
 
-# Install hook script
-mkdir -p "$HOOKS_DIR"
-cp "$SRC_HOOK" "$HOOKS_DIR/checkpoint_session_hook.py"
-chmod +x "$HOOKS_DIR/checkpoint_session_hook.py"
-echo "✓ Hook script: $HOOKS_DIR/checkpoint_session_hook.py"
-
-# Install skills
+HOOKS_DIR="$CLAUDE_DIR/hooks"
 SKILLS_DIR="$CLAUDE_DIR/skills"
-for skill in checkpoint-save checkpoint-review checkpoint-plan checkpoint-next checkpoint-audit; do
-  mkdir -p "$SKILLS_DIR/$skill"
-  cp "$REPO_ROOT/skills/$skill/SKILL.md" "$SKILLS_DIR/$skill/SKILL.md"
-  echo "✓ Skill: $skill"
+SETTINGS="$CLAUDE_DIR/settings.json"
+HOOK_NAME="checkpoint_compact_hook.py"
+
+# Hook script; the old per-prompt logger is replaced
+mkdir -p "$HOOKS_DIR"
+cp "$REPO_ROOT/hooks/$HOOK_NAME" "$HOOKS_DIR/$HOOK_NAME"
+chmod +x "$HOOKS_DIR/$HOOK_NAME"
+rm -f "$HOOKS_DIR/checkpoint_session_hook.py"
+echo "✓ Hook script: $HOOKS_DIR/$HOOK_NAME"
+
+# Skill; the six checkpoint-* skills of earlier versions are removed
+for old in checkpoint-save checkpoint-review checkpoint-plan checkpoint-next checkpoint-audit checkpoint-viz; do
+  if [ -d "$SKILLS_DIR/$old" ]; then
+    rm -rf "${SKILLS_DIR:?}/$old"
+    echo "  - removed old skill: $old"
+  fi
 done
+rm -rf "${SKILLS_DIR:?}/checkpoint"
+mkdir -p "$SKILLS_DIR"
+cp -R "$REPO_ROOT/skills/checkpoint" "$SKILLS_DIR/checkpoint"
+echo "✓ Skill: $SKILLS_DIR/checkpoint"
 
-# Merge hooks into settings.json
-mkdir -p "$CLAUDE_DIR"
+# Register the hook in settings.json
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
-
-PYTHON3=$(command -v python3)
-
 if $GLOBAL; then
-  HOOK_CMD="$PYTHON3 \"$HOOKS_DIR/checkpoint_session_hook.py\""
+  HOOK_CMD="$(command -v python3) \"$HOOKS_DIR/$HOOK_NAME\""
 else
-  HOOK_CMD='python3 "$(git rev-parse --show-toplevel)/.claude/hooks/checkpoint_session_hook.py"'
+  HOOK_CMD="python3 \"\$CLAUDE_PROJECT_DIR/.claude/hooks/$HOOK_NAME\""
 fi
 
-MERGE_PY=$(mktemp /tmp/checkpoint_merge_XXXXXX.py)
-cat > "$MERGE_PY" << 'PYEOF'
-import json, sys, pathlib
+python3 - "$SETTINGS" "$HOOK_CMD" <<'PYEOF'
+import json, pathlib, sys
 
-settings_path = pathlib.Path(sys.argv[1])
-hook_cmd = sys.argv[2]
-settings = json.loads(settings_path.read_text(encoding="utf-8")) if settings_path.stat().st_size > 0 else {}
-
+path = pathlib.Path(sys.argv[1])
+cmd = sys.argv[2]
+text = path.read_text(encoding="utf-8")
+settings = json.loads(text) if text.strip() else {}
 hooks = settings.setdefault("hooks", {})
-MARKER = "checkpoint_session_hook.py"
+markers = ("checkpoint_session_hook.py", "checkpoint_compact_hook.py")
 
-entries = [
-    ("SessionStart",     "startup|resume|clear|compact", 10,  "Initializing checkpoint session log"),
-    ("UserPromptSubmit", None,                           30,  "Recording checkpoint session prompt"),
-    ("PreCompact",       "manual|auto",                  10,  "Recording pre-compact boundary"),
-    ("PostCompact",      "manual|auto",                  10,  "Recording compact boundary"),
-]
+# Drop every checkpoint entry, including the four events earlier versions registered.
+for event in list(hooks):
+    kept = []
+    for entry in hooks[event]:
+        entry["hooks"] = [h for h in entry.get("hooks", []) if not any(m in h.get("command", "") for m in markers)]
+        if entry["hooks"]:
+            kept.append(entry)
+    if kept:
+        hooks[event] = kept
+    else:
+        del hooks[event]
 
-for event, matcher, timeout, status_msg in entries:
-    existing = hooks.setdefault(event, [])
-    already = any(
-        MARKER in h.get("command", "")
-        for entry in existing
-        for h in entry.get("hooks", [])
-    )
-    if already:
-        print(f"  ~ {event}: already registered")
-        continue
-    hook_obj = {"type": "command", "command": hook_cmd, "timeout": timeout, "statusMessage": status_msg}
-    entry = {"hooks": [hook_obj]}
-    if matcher:
-        entry["matcher"] = matcher
-    existing.append(entry)
-    print(f"  ✓ {event}")
-
-settings_path.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+hooks.setdefault("SessionStart", []).append({
+    "matcher": "compact",
+    "hooks": [{"type": "command", "command": cmd, "timeout": 10}],
+})
+path.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+print("✓ Hook registered: SessionStart(compact)")
 PYEOF
-
-python3 "$MERGE_PY" "$SETTINGS" "$HOOK_CMD"
-rm -f "$MERGE_PY"
 
 echo ""
 echo "Done. Restart Claude Code to apply."

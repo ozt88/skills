@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install-codex.sh — Codex global hook installer (bash)
+# install-codex.sh — install the checkpoint skill and its compaction hook for Codex
 #
 # Usage:
 #   bash scripts/install-codex.sh
@@ -10,11 +10,8 @@ REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CODEX_DIR="$HOME/.codex"
 HOOKS_DIR="$CODEX_DIR/hooks"
 SKILLS_DIR="$CODEX_DIR/skills"
-REQUIREMENTS_TOML="$CODEX_DIR/requirements.toml"
 CONFIG_TOML="$CODEX_DIR/config.toml"
-SRC_HOOK="$REPO_ROOT/hooks/checkpoint_session_hook.py"
-TARGET_HOOK="$HOOKS_DIR/checkpoint_session_hook.py"
-SRC_REQUIREMENTS="$REPO_ROOT/hooks/requirements.example.toml"
+HOOK_NAME="checkpoint_compact_hook.py"
 
 if ! command -v python3 &>/dev/null; then
   echo "Error: python3 is required." >&2
@@ -23,107 +20,60 @@ fi
 
 echo "Codex install: $CODEX_DIR"
 
-# 1. Install hook script
+# 1. Hook script; the old per-prompt logger is replaced
 mkdir -p "$HOOKS_DIR"
-cp "$SRC_HOOK" "$TARGET_HOOK"
-chmod +x "$TARGET_HOOK"
-echo "✓ Hook script: $TARGET_HOOK"
+cp "$REPO_ROOT/hooks/$HOOK_NAME" "$HOOKS_DIR/$HOOK_NAME"
+chmod +x "$HOOKS_DIR/$HOOK_NAME"
+rm -f "$HOOKS_DIR/checkpoint_session_hook.py"
+echo "✓ Hook script: $HOOKS_DIR/$HOOK_NAME"
 
-# 2. Install skills
-for skill in checkpoint-save checkpoint-review checkpoint-plan checkpoint-next checkpoint-audit; do
-  mkdir -p "$SKILLS_DIR/$skill"
-  cp "$REPO_ROOT/skills/$skill/SKILL.md" "$SKILLS_DIR/$skill/SKILL.md"
-  echo "✓ Skill: $skill"
+# 2. Skill; the checkpoint-* skills of earlier versions are removed
+for old in checkpoint-save checkpoint-review checkpoint-plan checkpoint-next checkpoint-audit checkpoint-viz; do
+  if [ -d "$SKILLS_DIR/$old" ]; then
+    rm -rf "${SKILLS_DIR:?}/$old"
+    echo "  - removed old skill: $old"
+  fi
 done
+rm -rf "${SKILLS_DIR:?}/checkpoint"
+mkdir -p "$SKILLS_DIR"
+cp -R "$REPO_ROOT/skills/checkpoint" "$SKILLS_DIR/checkpoint"
+echo "✓ Skill: $SKILLS_DIR/checkpoint"
 
-# 3. Write requirements.toml from the example, replacing the Windows placeholder path
-sed "s|C:\\\\Users\\\\YOUR_USER\\\\.codex\\\\hooks|$HOOKS_DIR|g" \
-    "$SRC_REQUIREMENTS" > "$REQUIREMENTS_TOML"
-echo "✓ Requirements: $REQUIREMENTS_TOML"
-
-# 4. Merge managed hooks block into config.toml
+# 3. Replace the managed hook block in config.toml
 mkdir -p "$CODEX_DIR"
 [ -f "$CONFIG_TOML" ] || : > "$CONFIG_TOML"
-
 MARKER_BEGIN="# BEGIN checkpoint managed hooks"
 MARKER_END="# END checkpoint managed hooks"
 
-# Remove any existing managed block (idempotent reinstall)
-if grep -qF "$MARKER_BEGIN" "$CONFIG_TOML"; then
-  python3 - "$CONFIG_TOML" "$MARKER_BEGIN" "$MARKER_END" <<'PYEOF'
-import re, sys, pathlib
+python3 - "$CONFIG_TOML" "$MARKER_BEGIN" "$MARKER_END" <<'PYEOF'
+import pathlib, re, sys
 p = pathlib.Path(sys.argv[1])
-begin = re.escape(sys.argv[2])
-end = re.escape(sys.argv[3])
+begin, end = re.escape(sys.argv[2]), re.escape(sys.argv[3])
 text = p.read_text(encoding="utf-8")
-text = re.sub(rf"\n?{begin}.*?{end}\n?", "\n", text, flags=re.DOTALL)
-p.write_text(text, encoding="utf-8")
+text = re.sub(rf"\n?{begin}.*?{end}\n?", "\n", text, flags=re.DOTALL).rstrip()
+p.write_text(text + "\n" if text else "", encoding="utf-8")
 PYEOF
-fi
 
-# Append fresh managed block
 cat >> "$CONFIG_TOML" <<EOF
 
 $MARKER_BEGIN
-[hooks]
-managed_dir = "~/.codex/hooks"
-
 [[hooks.SessionStart]]
-matcher = "startup|resume|clear|compact"
+matcher = "compact"
 
 [[hooks.SessionStart.hooks]]
 type = "command"
-command = 'python3 "$TARGET_HOOK"'
+command = 'python3 "$HOOKS_DIR/$HOOK_NAME"'
 timeout = 10
-statusMessage = "Initializing checkpoint session log"
-
-[[hooks.UserPromptSubmit]]
-
-[[hooks.UserPromptSubmit.hooks]]
-type = "command"
-command = 'python3 "$TARGET_HOOK"'
-timeout = 10
-statusMessage = "Recording checkpoint session prompt"
-
-[[hooks.PreCompact]]
-matcher = "manual|auto"
-
-[[hooks.PreCompact.hooks]]
-type = "command"
-command = 'python3 "$TARGET_HOOK"'
-timeout = 10
-statusMessage = "Recording pre-compact boundary"
-
-[[hooks.PostCompact]]
-matcher = "manual|auto"
-
-[[hooks.PostCompact.hooks]]
-type = "command"
-command = 'python3 "$TARGET_HOOK"'
-timeout = 10
-statusMessage = "Recording compact boundary"
 $MARKER_END
 EOF
-echo "✓ Config: $CONFIG_TOML"
+echo "✓ Hook registered in $CONFIG_TOML: SessionStart(compact)"
 
-# 5. Ensure [features] hooks = true
-if ! grep -qE "^\s*hooks\s*=\s*true" "$CONFIG_TOML"; then
-  if grep -qE "^\[features\]" "$CONFIG_TOML"; then
-    # [features] exists but no hooks line — insert hooks = true under it
-    python3 - "$CONFIG_TOML" <<'PYEOF'
-import re, sys, pathlib
-p = pathlib.Path(sys.argv[1])
-text = p.read_text(encoding="utf-8")
-text = re.sub(r"(\[features\]\s*\n)", r"\1hooks = true\n", text, count=1)
-p.write_text(text, encoding="utf-8")
-PYEOF
-  else
-    printf '\n[features]\nhooks = true\n' >> "$CONFIG_TOML"
-  fi
-  echo "✓ Enabled [features] hooks = true"
-else
-  echo "  ~ [features] hooks already enabled"
+# Earlier versions also wrote hooks into requirements.toml. Leave that file to its owner.
+if grep -qs "checkpoint_session_hook.py" "$CODEX_DIR/requirements.toml"; then
+  echo ""
+  echo "! $CODEX_DIR/requirements.toml still registers checkpoint_session_hook.py from an"
+  echo "  earlier install. Remove those [[hooks.*]] entries by hand."
 fi
 
 echo ""
-echo "Done. Restart Codex to apply."
+echo "Done. Restart Codex and approve the hook with /hooks."
