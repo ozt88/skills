@@ -95,11 +95,13 @@ def main() -> int:
     if not prompts:
         print("no user prompts recognized; the transcript format may have changed", file=sys.stderr)
         return 2
-    keep_from = prompts[-args.limit] if len(prompts) > args.limit else prompts[0]
-    start = evs.index(keep_from)
-    if start:
-        print(f"... {len(prompts) - args.limit} earlier prompts omitted")
-    n = len(prompts) - min(len(prompts), args.limit)
+    skipped = max(0, len(prompts) - args.limit)
+    start = 0
+    if skipped:
+        positions = [i for i, e in enumerate(evs) if e[0] == "prompt"]
+        start = positions[skipped]
+        print(f"... {skipped} earlier prompts omitted")
+    n = skipped
     for kind, val in evs[start:]:
         if kind == "compact":
             print(f"--- compaction {val} ---".replace("  ", " "))
