@@ -65,6 +65,13 @@ raw는 읽기 전용이다. 이 작업 자체는 raw에 기록하지 않는다(C
 - 이미 `[uncertain]`인 항목은 이번 raw에서 증거를 찾는다. 같은 방향이면 `[active]`, 반대로 확정되면 `[superseded]` 또는 `[rejected]`, 증거가 없으면 그대로 둔다.
 - decisions 항목의 제목을 바꾸면 index.md도 같이 고친다.
 
+참조 기록의 처리:
+- raw의 `- 참조: <파일> › <항목 제목>` 줄은 그 세션이 해당 항목을 근거로 판단했다는 기록이다. 새 지식으로 옮기지 않는다.
+- 가리키는 항목에 `**Referenced:** N times (date1, date2, ...)` 줄을 두고 횟수를 1 올리고 날짜를 덧붙인다. 줄이 없으면 `**Observed:**` 줄 바로 아래에 만든다.
+  `Observed`는 같은 교훈이 raw에 다시 나온 횟수이고, `Referenced`는 세션이 그 항목을 써먹은 횟수다. 둘을 섞지 않는다.
+- 제목이 정확히 맞는 항목이 없으면 가장 가까운 항목에 반영하고, 그래도 없으면 버린다.
+- index.md의 항목 요약 옆에 Referenced 횟수를 `(ref N)`으로 적는다. 다음 세션이 자주 쓰인 항목부터 보게 하기 위해서다.
+
 ## 4. 장부 갱신
 
 병합을 마친 뒤 1단계에서 읽은 파일 이름을 넘겨 `python3 ~/.claude/skills/knowledge-compile/scripts/manifest.py mark . <파일...>`을 실행한다.

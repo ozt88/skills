@@ -32,6 +32,7 @@ When a project has no manifest yet, the skill starts from the `Last compiled` da
 | `index.md` | a topic table and keyword index, so one read tells you which file to open |
 
 - A lesson seen again bumps its `Observed: N times (dates)` counter instead of adding a duplicate.
+- The injected index asks the agent to add `- 참조: <file> › <entry title>` to its raw log whenever an entry changed a decision. Compiling turns those lines into a `Referenced: N times (dates)` counter on the entry and an `(ref N)` mark in the index, so you can see which entries actually get used. `Observed` counts how often a lesson recurs; `Referenced` counts how often it was applied.
 - A conclusion that contradicts an existing decision is kept as a dated `New` quote and marks the entry `uncertain`; later evidence settles it.
 - When appending to an existing file, the skill keeps that file's field names and heading levels.
 
