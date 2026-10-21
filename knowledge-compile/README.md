@@ -17,6 +17,7 @@ Compiling takes a model and a few minutes per project, so it belongs outside wor
 1. **Logging (your setup).** A `CLAUDE.md` instruction asks the agent to append finished work to `.knowledge/raw/`. An example is below.
 2. **Compiling (this skill).** `/knowledge-compile` reads only raw files that are new or changed since the last compile, merges them into `.knowledge/knowledge/`, and records what it read in `.knowledge/compile-manifest.json`.
 3. **Scheduling (optional).** `scripts/compile-all.sh` runs the skill headlessly in every project that has new raw logs.
+4. **Loading (hook).** A `SessionStart` hook finds the nearest `.knowledge/knowledge/index.md` above the working directory and adds it to the session context. Only the index goes in; the agent opens a detail file when the task touches one of its topics. Without the hook, compiled knowledge sits unread unless something tells the agent to look.
 
 When a project has no manifest yet, the skill starts from the `Last compiled` date in `knowledge/index.md`, or from the first raw file if there is no index.
 
@@ -95,6 +96,7 @@ knowledge-compile/
 │  └─ scripts/
 │     ├─ manifest.py           pending / mark: which raw files still need compiling
 │     └─ compile-all.sh        headless runner for every project
+├─ hooks/knowledge_index_hook.py   SessionStart: injects index.md
 └─ scripts/install-claude.sh
 ```
 
@@ -104,4 +106,4 @@ knowledge-compile/
 bash scripts/install-claude.sh
 ```
 
-It copies the skill to `~/.claude/skills/knowledge-compile`. Re-running is safe.
+It copies the skill to `~/.claude/skills/knowledge-compile`, copies the hook to `~/.claude/hooks/`, and registers it under `SessionStart` in `~/.claude/settings.json`. Re-running is safe. Restart Claude Code afterwards.
