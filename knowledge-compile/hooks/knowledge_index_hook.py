@@ -13,10 +13,14 @@ MAX_CHARS = 16000  # index가 비정상적으로 커져도 컨텍스트를 잡�
 
 
 def find_index(start):
+    # 프로젝트 루트(.git이나 .knowledge가 있는 첫 디렉터리)에서 멈춘다.
+    # 끝까지 올라가면 홈의 .knowledge가 홈 아래 모든 프로젝트에 섞여 들어간다.
     for d in [start, *start.parents]:
         p = d / ".knowledge" / "knowledge" / "index.md"
         if p.is_file():
             return p
+        if (d / ".git").exists() or (d / ".knowledge").exists() or d == Path.home():
+            return None
     return None
 
 

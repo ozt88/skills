@@ -41,20 +41,29 @@ failed=0
 # shellcheck disable=SC2086
 for kn in ${KNOWLEDGE_ROOTS:-$HOME/.knowledge $HOME/.claude/.knowledge $HOME/*/.knowledge}; do
     [ -d "$kn/raw" ] || continue
+    # ~/.claude 아래는 헤드리스 모드에서 쓰기가 막히는 보호 경로다. 심볼릭 링크로 밖에 둔 경우 실제 경로에서 돌린다.
+    kn=$(realpath "$kn")
     proj=$(dirname "$kn")
     mapfile -t files < <(python3 "$M" pending "$proj")
     [ "${#files[@]}" -gt 0 ] || continue
     echo "knowledge-compile: $proj (raw ${#files[@]}개)"
+    stamp=$(mktemp)
     # 쓰기는 knowledge/ 아래로, 셸은 장부 도구로만 묶는다. 허용 밖 호출은 묻지 않고 거부된다.
+    # 파일 쓰기 허용은 Edit 규칙 하나로 Write까지 덮는다.
     (cd "$proj" && timeout 30m claude -p "/knowledge-compile" \
         --tools Skill,Read,Write,Edit,Glob,Bash \
-        --allowedTools Skill Read Glob \
-            "Write(/$kn/knowledge/**)" "Edit(/$kn/knowledge/**)" \
+        --allowedTools Skill Read Glob "Edit(/$kn/knowledge/**)" \
             "Bash(python3 $SKILL_M *)" "Bash(python3 $M *)" \
         --permission-mode dontAsk --strict-mcp-config --no-session-persistence) \
-        || { echo "knowledge-compile: $proj 실패 (exit $?)"; failed=1; continue; }
-    # 스킬도 장부를 갱신하지만, 셸 호출이 거부돼도 같은 raw를 다시 컴파일하지 않도록 여기서 한 번 더 적는다.
-    python3 "$M" mark "$proj" "${files[@]}"
+        || { echo "knowledge-compile: $proj 실패 (exit $?)"; failed=1; rm -f "$stamp"; continue; }
+    # 쓰기가 막혀도 claude는 0으로 끝난다. index.md가 새로 쓰였을 때만 성공으로 보고 장부를 적는다.
+    if [ "$kn/knowledge/index.md" -nt "$stamp" ]; then
+        python3 "$M" mark "$proj" "${files[@]}"
+    else
+        echo "knowledge-compile: $proj index.md가 갱신되지 않음, 장부를 적지 않음"
+        failed=1
+    fi
+    rm -f "$stamp"
 done
 
 if [ "$failed" -eq 0 ] && [ "${1:-}" != "--now" ]; then
