@@ -8,6 +8,7 @@ See the linked README of each skill for install instructions and detailed usage.
 | Skill | Description |
 | --- | --- |
 | [checkpoint](./checkpoint) | A resumable ledger of multi-session work, so you can `/clear` at every work boundary without losing decisions. Saves results as a DAG of nodes; a new session loads only the node it needs. One skill (`/checkpoint save`, `next`, `plan`, `review`, `audit`) plus an optional compaction hook, for Claude Code and Codex. |
+| [digest](./digest) | Turns a long Notion page, web article, PDF, or pasted text into a layered Korean digest: one line, TL;DR, key points, a section map marking what to read in full, and what is left for you. Long documents are split and digested in parallel. For Claude Code. |
 | [knowledge-compile](./knowledge-compile) | Compiles the work log an agent appends to `.knowledge/raw/` into curated decisions, guardrails, anti-patterns, troubleshooting, and an index. Reads only logs that changed since the last compile, ships a runner that compiles every project once a night, and loads the index into each new session. For Claude Code. |
 | [adversarial-review](./adversarial-review) | Independent reviewers, a separate Judge, producer responses, and verification. Supports ambiguous evaluations and separates judgment-only calls from tool-using agent work. For Codex. |
 
