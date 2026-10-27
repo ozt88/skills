@@ -17,7 +17,9 @@ Compiling takes a model and a few minutes per project, so it belongs outside wor
 1. **Logging (your setup).** A `CLAUDE.md` instruction asks the agent to append finished work to `.knowledge/raw/`. An example is below.
 2. **Compiling (this skill).** `/knowledge-compile` reads only raw files that are new or changed since the last compile, merges them into `.knowledge/knowledge/`, and records what it read in `.knowledge/compile-manifest.json`.
 3. **Scheduling (optional).** `scripts/compile-all.sh` runs the skill headlessly in every project that has new raw logs.
-4. **Loading (hook).** A `SessionStart` hook finds the nearest `.knowledge/knowledge/index.md` above the working directory and adds it to the session context. Only the index goes in; the agent opens a detail file when the task touches one of its topics. Without the hook, compiled knowledge sits unread unless something tells the agent to look.
+4. **Loading (mod or hook).** The nearest `.knowledge/knowledge/index.md` above the working directory goes into the session; only the index, and the agent opens a detail file when the task touches one of its topics. Without this step, compiled knowledge sits unread unless something tells the agent to look. Two ways, reading the same files:
+   - **Mod** (`mod/`, the default): reads the index at session start and again after each compaction, and sends it with the next prompt as context, so a nightly compile reaches a running session at its next compaction. It also notes which knowledge files the agent read, and when the agent next writes a raw log, reminds it of them so it can add `참조:` lines. (It does not use a `prompt.compose` system prompt section: on a machine with managed settings, the built-in security plugin skips a user mod's `prompt.compose` hook.)
+   - **Hook** (`hooks/knowledge_index_hook.py`): a `SessionStart` hook that adds the index to the session context. For a Claude Code without mods.
 
 When a project has no manifest yet, the skill starts from the `Last compiled` date in `knowledge/index.md`, or from the first raw file if there is no index.
 
@@ -103,7 +105,11 @@ knowledge-compile/
 │  └─ scripts/
 │     ├─ manifest.py           pending / mark: which raw files still need compiling
 │     └─ compile-all.sh        headless runner for every project
-├─ hooks/knowledge_index_hook.py   SessionStart: injects index.md
+├─ mod/                        Claude Code mod: index on the next prompt + 참조 reminder
+│  ├─ hooks/register.ts
+│  ├─ hooks/paths.ts
+│  └─ tests/knowledge.test.ts  claude plugin test mod
+├─ hooks/knowledge_index_hook.py   SessionStart: injects index.md (without mods)
 └─ scripts/install-claude.sh
 ```
 
@@ -113,4 +119,4 @@ knowledge-compile/
 bash scripts/install-claude.sh
 ```
 
-It copies the skill to `~/.claude/skills/knowledge-compile`, copies the hook to `~/.claude/hooks/`, and registers it under `SessionStart` in `~/.claude/settings.json`. Re-running is safe. Restart Claude Code afterwards.
+It copies the skill to `~/.claude/skills/knowledge-compile` and the mod to `~/.claude/mods/knowledge`, and adds that folder to `env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`. With `--hook` it installs the `SessionStart` hook instead. Either way it removes the other, so the index is never added twice. Re-running is safe. Restart Claude Code afterwards.

@@ -1,0 +1,6 @@
+{
+  "name": "knowledge",
+  "version": "0.1.0",
+  "description": "Adds the nearest compiled knowledge index to the system prompt and reminds the model which entries it opened when it writes a raw log",
+  "types": "./types/index.d.ts"
+}
