@@ -23,8 +23,9 @@ description: Have separate sessions judge how well a plan, spec, design, system 
 ## 절차
 
 1. **대상과 기준 고정**: 사용자 목표, 리뷰 대상, 제외 범위, 허용된 수정, 검수 기준을 `brief.md`에 적는다.
-   대상 파일을 `snapshot/`에 복사하고 원본 경로와 SHA256을 manifest에 남긴다. 기획에서 아직 정하지 않은 것과 코드에서 관찰한 것을 나눠 적는다.
+   대상 파일을 `snapshot/`에 복사하고 원본 경로와 SHA256을 manifest에 남긴다. 아직 정하지 않은 것과 대상에서 관찰한 것을 나눠 적는다.
    - 사용자 목표를 G1, G2처럼 나눠 manifest `goals`에 원문 그대로, 출처와 함께 적는다. 생산자가 요약한 의도로 대신하지 않는다.
+   - 조정자가 생산자 세션이면 어떤 발화를 목표로 고르고 어떻게 나눌지에 생산자의 판단이 들어간다. 리뷰어를 띄우기 전에 목표 목록을 사용자에게 보이고 확인받는다. 조정자가 생산자를 겸했는지와 목표를 확인받았는지를 report와 execution.json limits에 적는다.
    - 판단 근거가 될 원칙 문서(프로젝트의 `.knowledge/knowledge/decisions.md`, `guardrails.md`, 설계 원칙 문서)가 있으면 snapshot에 함께 넣는다.
    - 모호한 기준을 승인된 합격선처럼 고정하지 않는다. 사용자 요구 원문, 승인된 결정과 이유, 리뷰어가 제안한 기준, 미결정을 출처와 함께 나눈다.
    - 리뷰어는 기준이 목적을 충분히 다루는지도 점검한다. 기준을 바꾸자고 제안할 때는 이유와 영향을 적는다. 결과를 본 뒤 기준을 몰래 바꾸지 않는다.
@@ -43,15 +44,17 @@ description: Have separate sessions judge how well a plan, spec, design, system 
    - 판단 전용 호출은 응답만 돌려주고, 조정자가 원문 그대로 저장한다. 결과 폴더에 직접 쓰는 것은 조사 에이전트뿐이다.
    - 리뷰어와 Judge는 대상을 고치지 않는다. 공유 파일시스템은 격리가 아니므로 소스 해시도 확인한다.
 5. **Judge**: 모든 리뷰어 결과를 그대로 Judge에게 준다. 실패한 좌석은 실패로 남기고 재시도, 교체, 부분 검수 중 무엇을 했는지 적는다.
+   Judge 좌석이 실패하면 생산자 단계로 넘어가지 않는다. 다시 띄우거나 실행을 멈추고 보고한다. 조정자가 Judge를 대신하지 않는다.
    Judge는 원본에 비춰 중복을 묶고 반증, 보류, 상충 의견을 남긴다. 다수결이나 의견이 하나뿐이라는 이유로 지적을 채택하거나 지우지 않는다.
    Judge가 새로 찾은 쟁점은 `source_ids: []`와 `origin: judge-new`로 구분하고 근거를 단다.
    evaluation이면 목표마다 `goal_attainment`(met, partial, unmet, unknown)를 근거와 함께 판정한다. 점수는 매기지 않는다.
 6. **생산자 응답**: 생산자는 Judge 결과를 받은 뒤 모든 쟁점에 수용, 부분 수용, 거절, 보류 중 하나와 근거를 적는다.
-   수용과 수정 완료는 다르다. 승인된 범위의 수정은 진행하고 코드와 검증 증거를 연결한다. 수정 승인이 없는 검토면 제안으로 남긴다.
+   수용과 수정 완료는 다르다. 승인된 범위의 수정은 진행하고 수정 내용과 검증 증거를 연결한다. 대상을 고쳤으면 producer.json에 `revised: true`를 적는다. 수정 승인이 없는 검토면 제안으로 남긴다.
    거절에는 반증, 비용, 범위 중 무엇이 근거인지 적고 Judge의 결론을 덮어쓰지 않는다.
 7. **검증**: 같은 Judge나 독립 검수자가 바뀐 대상과 생산자 응답을 확인한다. 수정은 증거로, 거절은 반증이 타당한지로 판단한다.
    리뷰 규칙 자체를 고쳤다면 처음 고정한 기준으로 판단하고, 기준이 바뀌었다는 사실은 따로 밝힌다.
 8. **보고**: 목표별 달성 상태(Judge 판정과 수정 후 판정), 과설계 후보, 채택하고 고친 것, 거절한 것, 보류한 것, 남은 이견, 실행한 검증을 사용자에게 보고한다.
+   목표별 상태, `unresolved`, `pending_assessments`, `overdesign_candidates`, `removals_reviewed`, `failed_reviewers`는 검사기 출력에서 그대로 옮긴다. 조정자가 생산자 세션이어도 이 부분은 요약하거나 고쳐 쓰지 않는다.
    해결되지 않은 중대 문제, 이견, 실행하지 못한 검증, 범위 밖 문제를 감추지 않는다. 상한에 닿아도 합의를 꾸미거나 완료로 판정하지 않는다.
    새 근거 없이 전체 검토를 되풀이하지 않는다. 기록은 기존 checkpoint에 연결하고, 앞으로 할 일을 따로 관리하지 않는다.
 
@@ -63,6 +66,7 @@ description: Have separate sessions judge how well a plan, spec, design, system 
 |---|---|---|
 | `brief.md`, `manifest.json`, `snapshot/` | 조정자 | manifest에 사용한 계약 문서의 버전이나 해시를 적는다. 계약을 실행마다 복사하지 않는다 |
 | `reviews/R1.json` ... `RN.json` | 리뷰어(판단 전용이면 조정자가 저장) | |
+| `raw/` | 조정자(agent 방식은 리뷰어가 첫 단계 결과를 직접 쓴다) | 좌석 호출마다 원응답 그대로. 리뷰어 첫 단계 응답이 있어야 expectations를 나중에 고치지 않았는지 대조할 수 있다 |
 | `judge.json`, `producer.json`, `verification.json` | 각 역할 | |
 | `execution.json` | 조정자 | 단계별 계획한 방식과 실제 방식. execution.md 참고 |
 | `context-updates.md` | 조정자 | 추가 맥락을 전한 경우만. evaluation.md 참고 |

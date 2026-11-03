@@ -104,6 +104,7 @@ def check(run, phase='verification'):
         need(bool(goals), 'evaluation purpose requires goals')
         unique(goals, 'goals')
     findings, failed, evaluations, overdesign = [], [], [], []
+    removals_reviewed = False
     for seat in seats:
         # IDs are file components, never arbitrary paths.
         need(seat.isascii() and seat.replace('-', '').replace('_', '').isalnum(), 'invalid reviewer filename ID')
@@ -115,12 +116,16 @@ def check(run, phase='verification'):
             failed.append(seat)
         elif purpose == 'evaluation':
             text_fields(review, ['lens'])
-            # Written from the goals alone, before the target was read.
+            # Meant to be written from the goals alone; the order is kept by how the coordinator
+            # splits the input, and compared against raw/ by hand. This checker cannot see it.
             expected = []
             for item in array(review, 'expectations'):
                 text_fields(item, ['goal_id', 'condition'])
                 expected.append(item['goal_id'])
             need(set(expected) == set(goals), 'expectations must cover every goal')
+            need(bool(array(review, 'assessments')), 'complete evaluation review needs assessments')
+        if review['status'] == 'complete' and review.get('removals'):
+            removals_reviewed = True
         for removal in optional_array(review, 'removals'):
             text_fields(removal, ['element', 'reason'])
             goal_refs(array(removal, 'breaks_goals'), goals, 'removal goals')
@@ -148,6 +153,8 @@ def check(run, phase='verification'):
     result = dict(structure_valid=True, phase=phase, purpose=purpose, reviewers=len(seats), failed_reviewers=failed, findings=len(findings))
     result['evaluations'] = len(evaluations)
     result['overdesign_candidates'] = overdesign
+    # Separates "no candidates found" from "nobody ran the removal test".
+    result['removals_reviewed'] = removals_reviewed
     result['limitation'] = '누락, 연결, snapshot 해시만 검사한다. 역할 신원, 독립성, 근거의 진실성, 합의, 사용자 승인은 보증하지 않는다.'
     if phase == 'reviews':
         return result
@@ -192,6 +199,10 @@ def check(run, phase='verification'):
         return result
     producer = load(run / 'producer.json')
     need(producer.get('producer') == manifest['producer'] and producer.get('target_id') == target, 'producer identity/target mismatch')
+    # Required rather than defaulted, so leaving it out cannot skip the re-judging below.
+    revised = producer.get('revised')
+    need(isinstance(revised, bool), 'revised: boolean required')
+    result['revised'] = revised
     answered = []
     for response in array(producer, 'responses'):
         text_fields(response, ['issue_id', 'reason', 'action'])
@@ -232,8 +243,8 @@ def check(run, phase='verification'):
             pending.append(dict(assessment_id=item['assessment_id'], status=item['status']))
     coverage(assessment_checks, assessment_ids, 'verification assessment coverage')
     result['pending_assessments'] = pending
-    # Optional: the verifier re-judges goals when the producer revised the target.
-    if purpose == 'evaluation' and 'goal_attainment' in verification:
+    # A revised target must be re-judged; otherwise re-judging is optional.
+    if purpose == 'evaluation' and (revised or 'goal_attainment' in verification):
         result['final_goal_attainment'] = attainment(array(verification, 'goal_attainment'), goals, evaluations, 'verification goal attainment')
     result.update(unresolved=unresolved, all_seats_complete=not failed)
     return result

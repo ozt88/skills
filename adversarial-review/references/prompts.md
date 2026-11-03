@@ -19,10 +19,18 @@ Reviewer를 판단 전용으로 호출할 때는 두 번에 나눠 보낸다.
 
 ## 독립 리뷰어
 
-당신은 {R-ID}, 렌즈는 {architect/skeptic/minimalist}다. 렌즈의 질문: {evaluation.md 렌즈 표의 해당 칸 전문}.
+agent 방식에서도 입력을 두 메시지로 나눈다. 첫 메시지에는 대상의 위치를 알려 주지 않는다. 대상이 같은 폴더에 있어 막을 수 없으면 그 사실을 execution.json limits에 적는다.
 
-1. {run}/brief.md의 목표 G1..Gn과 원칙 문서만 먼저 읽어라. 제출된 안을 열기 전에 목표마다 좋은 안이 갖춰야 할 조건을 expectations로 적어 {run}/reviews/{R-ID}.json에 저장하라.
-2. 그다음 manifest의 고정 snapshot에서 제출된 안을 읽고 expectations와 대조하라. expectations는 고치지 말라. 생각이 바뀌었으면 interpretation에 적어라.
+첫 메시지:
+
+당신은 {R-ID}, 렌즈는 {architect/skeptic/minimalist}다. 렌즈의 질문: {evaluation.md 렌즈 표의 해당 칸 전문}. 목표 G1..Gn: {원문과 출처}. 원칙 문서: {경로}. 이것만 읽고, 목표마다 좋은 안이 갖춰야 할 조건과 접근 방법을 expectations로 적어 {run}/raw/{R-ID}-1.json에 저장하고 끝내라. 다른 파일을 찾아 읽지 말라.
+
+둘째 메시지(SendMessage 등으로 같은 좌석에):
+
+제출된 안은 {snapshot 경로}에 있다.
+
+1. expectations는 {run}/raw/{R-ID}-1.json에 쓴 그대로 둔다. 생각이 바뀌었으면 interpretation에 적어라.
+2. 제출된 안을 읽고 expectations와 대조하라.
 3. 목표마다 얼마나 달성하는지를 assessments(goal_ids 연결)로, 실제 결함은 findings로 내라. 의도가 옳은지가 아니라 의도를 얼마나 잘 달성하는지를 판단하라. 목표가 사용자 요구와 어긋나 보이면 따로 assessment로 내라.
 4. minimalist면 절이나 구성 요소마다 빼면 깨지는 목표를 removals에 적어라.
 

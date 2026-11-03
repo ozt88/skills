@@ -25,7 +25,7 @@ class TraceabilityTests(unittest.TestCase):
             'reviews/R1.json': dict(target_id='T', reviewer='R1', status='complete', summary='inspected', findings=[dict(id='R1-001', severity='P1', claim='bug', impact='loss', suggestion='fix', evidence=['code line 1'])]),
             'reviews/R2.json': dict(target_id='T', reviewer='R2', status='complete', summary='inspected', findings=[dict(id='R2-001', severity='P2', claim='same bug', impact='loss', suggestion='fix', evidence=['code line 1'])]),
             'judge.json': dict(target_id='T', judge='J', summary='merged', issues=[dict(id='J-001', source_ids=['R1-001', 'R2-001'], verdict='upheld', severity='P1', reason='reproduced', evidence=['reproduction'])]),
-            'producer.json': dict(target_id='T', producer='P', responses=[dict(issue_id='J-001', decision='accept', reason='confirmed', action='fixed', evidence=['patch'])]),
+            'producer.json': dict(target_id='T', producer='P', revised=False, responses=[dict(issue_id='J-001', decision='accept', reason='confirmed', action='fixed', evidence=['patch'])]),
             'verification.json': dict(target_id='T', verifier='J', summary='checked', results=[dict(issue_id='J-001', status='resolved', reason='tested fix', evidence=['run result'])])}
 
     def run_check(self, phase='verification'):
@@ -114,7 +114,8 @@ class TraceabilityTests(unittest.TestCase):
             self.docs[f'reviews/{seat}.json']['lens'] = lens
             self.docs[f'reviews/{seat}.json']['expectations'] = [dict(goal_id='G1', condition='The answer is in the first screen')]
         self.docs['reviews/R1.json']['assessments'] = [dict(id='R1-E01', question='Which alternative?', criteria=['User: priority undecided; reviewer proposal: readability'], observation='A is dense; B uses larger text', interpretation='Depends on task', unknowns=['task priority'], next_action='Compare same data', goal_ids=['G1'])]
-        self.docs['judge.json']['assessments'] = [dict(id='A-001', source_ids=['R1-E01'], conclusion='Conditional choice', reason='No priority set', next_action='Compare tasks', decision_owner='user', evidence=['R1-E01'])]
+        self.docs['reviews/R2.json']['assessments'] = [dict(id='R2-E01', question='Is the answer reachable?', criteria=['User: answer fast'], observation='B shows it first', interpretation='B fits G1', unknowns=[], next_action='none', goal_ids=['G1'])]
+        self.docs['judge.json']['assessments'] = [dict(id='A-001', source_ids=['R1-E01', 'R2-E01'], conclusion='Conditional choice', reason='No priority set', next_action='Compare tasks', decision_owner='user', evidence=['R1-E01'])]
         self.docs['judge.json']['goal_attainment'] = [dict(goal_id='G1', status='partial', reason='Only B puts the answer first', evidence=['R1-E01'], source_ids=['R1-E01'])]
         self.docs['producer.json']['assessment_responses'] = [dict(assessment_id='A-001', reason='Priority belongs to user', action='Prepare comparison; do not choose', evidence=['plan'])]
         self.docs['verification.json']['assessment_results'] = [dict(assessment_id='A-001', status='decision-needed', reason='Preference remains open', evidence=['comparison plan'])]
@@ -171,6 +172,32 @@ class TraceabilityTests(unittest.TestCase):
         self.add_evaluation()
         self.docs['reviews/R2.json']['removals'] = [dict(element='cache layer', breaks_goals=[], reason='no goal needs it'), dict(element='index', breaks_goals=['G1'], reason='lookup slows')]
         self.assertEqual(self.run_check('reviews')['overdesign_candidates'], ['R2: cache layer'])
+
+    def test_complete_reviewer_needs_assessments(self):
+        self.add_evaluation()
+        self.docs['reviews/R2.json']['assessments'] = []
+        with self.assertRaises(ValueError): self.run_check('reviews')
+
+    def test_removals_reviewed_separates_no_candidates_from_no_test(self):
+        self.add_evaluation()
+        self.assertFalse(self.run_check('reviews')['removals_reviewed'])
+        self.docs['reviews/R2.json']['removals'] = []
+        self.assertFalse(self.run_check('reviews')['removals_reviewed'])
+        self.docs['reviews/R2.json']['removals'] = [dict(element='index', breaks_goals=['G1'], reason='lookup slows')]
+        result = self.run_check('reviews')
+        self.assertTrue(result['removals_reviewed'])
+        self.assertEqual(result['overdesign_candidates'], [])
+
+    def test_producer_must_state_revised(self):
+        del self.docs['producer.json']['revised']
+        with self.assertRaises(ValueError): self.run_check('producer')
+
+    def test_revised_target_must_be_rejudged(self):
+        self.add_evaluation()
+        self.docs['producer.json']['revised'] = True
+        with self.assertRaises(ValueError): self.run_check()
+        self.docs['verification.json']['goal_attainment'] = [dict(goal_id='G1', status='met', reason='revised', evidence=['new snapshot'])]
+        self.assertTrue(self.run_check()['revised'])
 
     def test_verifier_regoal_must_cover_goals(self):
         self.add_evaluation()

@@ -27,6 +27,8 @@ reviews/R1.json: `reviewer`, `target_id`, `status`(`complete` 또는 `failed`), 
 - `assessments`: evaluation.md 참고. `goal_ids`로 다루는 목표를 연결한다.
 - `removals`(선택, minimalist 렌즈는 사실상 필수): 각 항목 `element`, `breaks_goals`(그 요소를 빼면 깨지는 목표 ID 배열), `reason`. `breaks_goals`가 비면 과설계 후보로 집계된다.
 
+- `basis`(provided-only 또는 tool-verified), `evidence_requests`(각 항목 무엇을, 왜, 판단에 주는 영향), `limitations`(문장 배열): execution.md가 판단 전용 호출에 요구하는 반환 필드다. 판단 전용이면 셋 다 쓴다.
+
 본인이 읽거나 시험한 범위와 못한 범위를 summary에 적는다.
 
 ## Judge
@@ -36,12 +38,13 @@ judge.json: `judge`, `target_id`, `issues` 배열, `summary`. evaluation이면 `
 - 각 issue: `id`(J-001), `source_ids`(리뷰 finding ID 배열), `verdict`(upheld/refuted/uncertain), `severity`, `reason`, `evidence` 배열. 모든 finding은 정확히 하나의 issue로 연결한다. 중복은 여러 source_ids로 묶고, 반증된 원문도 연결을 유지한다. 서로 다른 지적을 합쳤다면 차이까지 reason에 남긴다. Judge가 새로 찾은 쟁점은 `source_ids: []`와 `origin: judge-new`로 구분한다.
 - `goal_attainment`: 목표마다 정확히 한 항목. `goal_id`, `status`(met/partial/unmet/unknown), `reason`, `evidence` 배열, `source_ids`(근거가 된 리뷰어 assessment ID, 선택). 점수를 매기지 않는다. unknown은 판단할 자료가 없다는 뜻이며 무엇이 있으면 판단할 수 있는지 reason에 적는다.
 - `strengths`(선택): 리뷰어가 문제를 찾지 못했고 Judge도 근거를 확인한 장점 1~3개. 채우려고 지어내지 않는다.
+- `basis`, `evidence_requests`, `limitations`: Reviewer와 같다.
 
 Judge는 리뷰어 수가 아니라 사실 근거로 판단한다. 같은 모델의 상관된 결론을 독립 재현 횟수로 부풀리지 않는다. 원인을 규명하지 못한 의심은 uncertain으로 남긴다. 합리적인 반론을 강제 합의로 지우지 않는다.
 
 ## Producer
 
-producer.json: `producer`, `target_id`, `responses` 배열. evaluation이면 `assessment_responses`도 쓴다.
+producer.json: `producer`, `target_id`, `revised`(대상을 고쳤으면 true), `responses` 배열. evaluation이면 `assessment_responses`도 쓴다.
 
 각 response: `issue_id`, `decision`(accept/partial/reject/defer), `reason`, `action`, `evidence` 배열. 모든 Judge issue에 정확히 한 번 응답한다. refuted에도 동의나 추가 이견을 짧게 남긴다. partial은 수용한 부분과 거절한 부분을 각각 적고, defer는 남은 조건과 영향을 적는다. 수정하지 않았으면 action에 미수정이라고 적는다. 거절을 수정 완료로 표시하지 않는다.
 
@@ -50,6 +53,6 @@ producer.json: `producer`, `target_id`, `responses` 배열. evaluation이면 `as
 verification.json: `verifier`(producer와 다른 역할), `target_id`, `results` 배열, `summary`. evaluation이면 `assessment_results`도 쓴다.
 
 - 각 result: `issue_id`, `status`(resolved/open/disputed/not-run), `reason`, `evidence` 배열. 모든 issue를 확인한다. resolved는 수정이나 반증을 독립 확인한 경우이며 수용했다는 이유만으로 지정하지 않는다. Judge와 생산자의 의견이 다르면 disputed를 보존한다. 증거가 부족하면 not-run이나 open으로 남긴다. target_id는 최초 검수 패킷 ID이며 수정 후 파일과 해시는 evidence에 별도로 적는다.
-- `goal_attainment`(선택): 생산자가 대상을 고쳤으면 Judge와 같은 형식으로 목표를 다시 판정한다. 넣으면 모든 목표를 다룬다. Judge의 판정은 덮어쓰지 않고 나란히 보고한다.
+- `goal_attainment`: producer.json이 `revised: true`면 필수다. Judge와 같은 형식으로 고친 안의 목표를 다시 판정하고 모든 목표를 다룬다. Judge의 판정은 덮어쓰지 않고 나란히 보고한다.
 
 최종 report는 원문→Judge→생산자→검증의 연결, 목표별 달성 상태(Judge 판정과 수정 후 판정), 과설계 후보, 미해결 항목을 보여 준다. 자동 구조 검사는 거짓이거나 무관한 증거를 판별하지 않는다. 심각한 미해결 항목과 unmet 목표를 숨기지 않는다. 보고 완료를 대상의 품질 승인으로 취급하지 않는다.
