@@ -47,7 +47,7 @@ Graphs made with other column layouts (an `ID` column, a `Depends on` column) st
 
 | Status | Meaning | Executable |
 |---|---|---|
-| Ready | dependencies met | yes |
+| Ready | every `depends_on` node is Done | yes |
 | In Progress | started; the node has a Progress Snapshot | yes |
 | Blocked | waiting on a dependency or event named in Edges | when unblocked |
 | Parked | deferred until a `parked_until` condition | when triggered |
@@ -58,6 +58,8 @@ Graphs made with other column layouts (an `ID` column, a `Depends on` column) st
 | Split, Merged | became other nodes; name them | no |
 
 The cell starts with one of these words. A date or short qualifier may follow in parentheses: `Done (2026-09-10)`, `In Progress (partial)`.
+
+A Handed off dependency does not make a node Ready: its output is not there yet. When a dependency is Superseded, Split, or Merged, point the edge at the node that replaced it.
 
 Edges: `depends_on`, `blocks`, `verifies`, `supersedes`, `parked_until <condition>`, `resumes_after`.
 
@@ -122,7 +124,7 @@ Run from this skill's directory:
 python3 scripts/check_graph.py <graph-dir>
 ```
 
-It reports missing files, unknown status words, missing Output Contract or Progress Snapshot sections, status lines that disagree with `index.md`, unknown or cyclic dependencies, Ready nodes with unfinished dependencies, unlisted node files, and graphs that should be archived.
+It reports missing files, rows listed twice, unknown status words, missing or empty Output Contract or Progress Snapshot sections, status lines that disagree with `index.md`, unknown or cyclic dependencies, Ready nodes whose dependencies are not Done, unlisted node files, and graphs that should be archived.
 
 Then check by reading:
 - `index.md` holds routing, not paragraphs of context.

@@ -1,6 +1,8 @@
 # next
 
-Open the next node in a fresh session. The graph replaces the previous conversation; do not load old transcripts or handoff files.
+Open the next node in a fresh session. The graph replaces the previous conversation; do not load old transcripts or handoff files by default.
+
+When the chosen node lacks the reason for a decision it depends on, or two sources disagree, follow the links the node, its Output Contracts, or DECISIONS.md give (the original request, a design doc, a commit) before asking the user to explain again. If no link leads to the reason, mark it unconfirmed instead of reconstructing it from guesswork.
 
 1. Find active graphs at `<project-root>/.checkpoint/graphs/*/index.md`, excluding the archive unless asked. With several graphs, let the user's request pick one; if it is still ambiguous, ask.
 2. Read `index.md`. Candidates are Ready and In Progress nodes, plus Blocked or Parked nodes whose condition is now met.

@@ -14,6 +14,8 @@ import sys
 STATUSES = ["in progress", "handed off", "ready", "blocked", "parked", "done",
             "superseded", "dropped", "split", "merged"]
 EXECUTABLE = {"ready", "in progress", "blocked", "parked"}
+# A dependency in one of these became other nodes; the edge should point at them instead.
+REPLACED = {"superseded", "split", "merged"}
 # An index.md past this many lines is usually carrying context that belongs in nodes.
 INDEX_LINE_BUDGET = 120
 
@@ -62,6 +64,17 @@ def deps_of(row: dict) -> list[str]:
     return deps
 
 
+def section_filled(body: str, title: str) -> bool | None:
+    """None if the section is absent, else whether it has content beyond empty `- Label:` template lines."""
+    m = re.search(rf"^#+\s*{title}\b.*$", body, re.I | re.M)
+    if not m:
+        return None
+    rest = body[m.end():]
+    nxt = re.search(r"^#+\s", rest, re.M)
+    lines = rest[:nxt.start() if nxt else len(rest)].splitlines()
+    return any(l.strip() and not re.match(r"^\s*[-*]\s*[^:]+:\s*$", l) for l in lines)
+
+
 def has_cycle(graph: dict[str, list[str]]) -> bool:
     state = {}
 
@@ -106,9 +119,14 @@ def check(gdir: pathlib.Path) -> list[tuple[str, str]]:
             match = sorted((gdir / "nodes").glob(f"{ids[0]}-*.md"))
             rel = f"nodes/{match[0].name}" if match else None
         f = gdir / rel if rel else None
+        if nid in nodes:
+            out.append(("High", f"{nid}: listed more than once in index.md"))
         if st is None:
             out.append(("Medium", f"{nid}: unknown status '{st_cell}'"))
-        if f is not None:
+        if f is None:
+            sev = "High" if st in EXECUTABLE else "Medium"
+            out.append((sev, f"{nid}: no node file linked or found as nodes/{nid}-*.md"))
+        else:
             listed_files.add(f.resolve())
             if not f.is_file():
                 out.append(("High", f"{nid}: node file {rel} missing"))
@@ -119,15 +137,23 @@ def check(gdir: pathlib.Path) -> list[tuple[str, str]]:
         for d in deps:
             if d not in nodes:
                 out.append(("Medium", f"{nid}: depends on unknown node {d}"))
-            elif st == "ready" and nodes[d][0] not in ("done", "handed off", "superseded", "merged"):
-                out.append(("Medium", f"{nid}: Ready but dependency {d} is {nodes[d][0]}"))
+            elif st == "ready" and nodes[d][0] != "done":
+                # Handed off means someone else still owns the rest, so its output is not ready either.
+                hint = "; point the edge at what replaced it" if nodes[d][0] in REPLACED else ""
+                out.append(("Medium", f"{nid}: Ready but dependency {d} is {nodes[d][0]}{hint}"))
         if f is None:
             continue
         body = f.read_text(encoding="utf-8", errors="replace")
-        if st == "done" and not re.search(r"^#+\s*output contract", body, re.I | re.M):
-            out.append(("Medium", f"{nid}: Done without an Output Contract section"))
-        if st in ("in progress", "blocked") and not re.search(r"^#+\s*progress snapshot", body, re.I | re.M):
-            out.append(("Medium", f"{nid}: {st} without a Progress Snapshot section"))
+        for need, title, label in (("done", "output contract", "an Output Contract"),
+                                   ("in progress", "progress snapshot", "a Progress Snapshot"),
+                                   ("blocked", "progress snapshot", "a Progress Snapshot")):
+            if st != need:
+                continue
+            filled = section_filled(body, title)
+            if filled is None:
+                out.append(("Medium", f"{nid}: {st} without {label} section"))
+            elif not filled:
+                out.append(("Medium", f"{nid}: {st} with {label} section left empty"))
         own = re.search(r"^\**status\**\s*:\s*(.+)$", body, re.I | re.M)
         if own and st and status_of(own.group(1)) != st:
             out.append(("Medium", f"{nid}: node file says '{own.group(1).strip()}' but index.md says {st}"))
