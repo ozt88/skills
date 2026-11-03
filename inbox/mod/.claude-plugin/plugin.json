@@ -1,0 +1,6 @@
+{
+  "name": "inbox",
+  "version": "0.1.0",
+  "description": "One todo list for every session: a pane to add and check off items, a band for items due soon, and /next to pick what to do",
+  "types": "./types/index.d.ts"
+}
