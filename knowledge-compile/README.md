@@ -15,7 +15,7 @@ Compiling takes a model and a few minutes per project, so it belongs outside wor
 ## How it works
 
 1. **Logging (your setup).** A `CLAUDE.md` instruction asks the agent to append finished work to `.knowledge/raw/`. An example is below.
-2. **Compiling (this skill).** `/knowledge-compile` reads only raw files that are new or changed since the last compile, merges them into `.knowledge/knowledge/`, and records what it read in `.knowledge/compile-manifest.json`.
+2. **Compiling (this skill).** `/knowledge-compile` reads only raw files that are new or changed since the last compile, merges them into `.knowledge/knowledge/`, and records a content hash of what it read in `.knowledge/compile-manifest.json`. Lines appended to a raw file while it is being compiled stay pending for the next compile.
 3. **Scheduling (optional).** `scripts/compile-all.sh` runs the skill headlessly in every project that has new raw logs.
 4. **Loading (mod or hook).** The nearest `.knowledge/knowledge/index.md` above the working directory goes into the session; only the index, and the agent opens a detail file when the task touches one of its topics. Without this step, compiled knowledge sits unread unless something tells the agent to look. Two ways, reading the same files:
    - **Mod** (`mod/`, the default): reads the index at session start and again after each compaction, and sends it with the next prompt as context, so a nightly compile reaches a running session at its next compaction. It also notes which knowledge files the agent read, and when the agent next writes a raw log, reminds it of them so it can add `참조:` lines. (It does not use a `prompt.compose` system prompt section: on a machine with managed settings, the built-in security plugin skips a user mod's `prompt.compose` hook.)
@@ -80,6 +80,10 @@ Call it every hour; it exits immediately outside the night window (20:00 to 08:0
 | `KC_NIGHT_END` | `8` | hour the window closes |
 
 Each headless run may write only under that project's `.knowledge/knowledge/` and may run only the manifest script; anything else is denied without a prompt. Raw logs are never modified.
+
+Only one runner works at a time; a second one, scheduled or `--now`, exits. A project whose compile or manifest step fails is reported, keeps its raw files pending, and does not count tonight as done, so the next run retries it.
+
+The runner needs Linux or WSL: GNU `date -d`, `flock`, `timeout`, and Bash 4 or later. macOS is not supported as is. `KNOWLEDGE_ROOTS` is split on spaces, so paths containing spaces are not supported.
 
 Cron:
 

@@ -35,6 +35,13 @@ if [ "${1:-}" != "--now" ]; then
     fi
 fi
 
+# 예약 실행과 --now 실행이 겹치면 같은 raw를 두 번 병합한다. 한 번에 하나만 돌고, 잠금은 프로세스가 끝나면 풀린다.
+exec 9>"$STATE/lock"
+if ! flock -n 9; then
+    echo "knowledge-compile: 다른 실행이 도는 중, 건너뜀"
+    exit 0
+fi
+
 # 스킬은 장부 명령을 ~ 경로로 적는다. 모델이 펼친 경로로 써도 통과하도록 둘 다 허용한다.
 SKILL_M="~/.claude/skills/knowledge-compile/scripts/manifest.py"
 failed=0
@@ -44,8 +51,14 @@ for kn in ${KNOWLEDGE_ROOTS:-$HOME/.knowledge $HOME/.claude/.knowledge $HOME/*/.
     # ~/.claude 아래는 헤드리스 모드에서 쓰기가 막히는 보호 경로다. 심볼릭 링크로 밖에 둔 경우 실제 경로에서 돌린다.
     kn=$(realpath "$kn")
     proj=$(dirname "$kn")
-    mapfile -t files < <(python3 "$M" pending "$proj")
-    [ "${#files[@]}" -gt 0 ] || continue
+    # 장부가 깨져 pending이 실패하면 "새 기록 없음"과 구분되지 않는다. 실패로 남겨 다음 실행도 다시 보게 한다.
+    if ! out=$(python3 "$M" pending "$proj"); then
+        echo "knowledge-compile: $proj 장부를 읽지 못함"
+        failed=1
+        continue
+    fi
+    [ -n "$out" ] || continue
+    mapfile -t files <<<"$out"
     echo "knowledge-compile: $proj (raw ${#files[@]}개)"
     stamp=$(mktemp)
     # 쓰기는 knowledge/ 아래로, 셸은 장부 도구로만 묶는다. 허용 밖 호출은 묻지 않고 거부된다.
@@ -58,7 +71,10 @@ for kn in ${KNOWLEDGE_ROOTS:-$HOME/.knowledge $HOME/.claude/.knowledge $HOME/*/.
         || { echo "knowledge-compile: $proj 실패 (exit $?)"; failed=1; rm -f "$stamp"; continue; }
     # 쓰기가 막혀도 claude는 0으로 끝난다. index.md가 새로 쓰였을 때만 성공으로 보고 장부를 적는다.
     if [ "$kn/knowledge/index.md" -nt "$stamp" ]; then
-        python3 "$M" mark "$proj" "${files[@]}"
+        if ! python3 "$M" mark "$proj" "${files[@]}"; then
+            echo "knowledge-compile: $proj 장부를 적지 못함"
+            failed=1
+        fi
     else
         echo "knowledge-compile: $proj index.md가 갱신되지 않음, 장부를 적지 않음"
         failed=1
