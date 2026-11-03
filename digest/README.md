@@ -35,8 +35,8 @@ Ask to save it and it goes to a new Notion page (you choose where) or to `digest
 
 ## Requirements
 
-- Notion pages: the `notion-page` skill or the Notion MCP connector
-- Web pages: WebFetch, or the built-in browser for pages behind a login
+- Notion pages: the `notion-blocks` skill or the Notion MCP connector. Chart images need the Notion MCP connector, because `notion-blocks` drops the URLs of uploaded images
+- Web pages: WebFetch, or a browser tool such as Claude in Chrome for pages behind a login
 
 ## Install
 

@@ -1,6 +1,6 @@
 ---
 name: digest
-description: Turn a long document the user is reading (Notion page, web article, docs site, PDF, local file, or pasted text) into a layered Korean digest that can be absorbed quickly - one line, a 3-line TL;DR, key points, a section map that says which parts are worth reading in the original, and what is left for the reader - shown in chat, or drawn as a foldable inline widget on request. Use when the user shares a Notion or web link or a long text and says digest, 다이제스트, 소화, 요약, 정리, "핵심만", "읽기 좋게", or that a document is too long to read. Do not use for writing new documents or editing the source.
+description: Turn a long document the user is reading (Notion page, web article, docs site, PDF, local file, or pasted text) into a layered Korean digest that can be absorbed quickly - one line, a 3-line TL;DR, key points, a section map that says which parts are worth reading in the original, and what is left for the reader - shown in chat, or drawn as a foldable inline widget on request. Use when the user shares a Notion or web link or a long text and says digest, 다이제스트, 소화, 요약, 정리, "핵심만", "읽기 좋게", or that a document is too long to read. Do not use for writing new documents or editing the source, or for summarizing code diffs, pull requests, or the work done in this session.
 ---
 
 # digest
@@ -14,9 +14,9 @@ description: Turn a long document the user is reading (Notion page, web article,
 
 | 원문 | 가져오는 방법 |
 |---|---|
-| 노션 링크나 페이지 ID | `notion-page` 스킬로 본문을 읽는다. 실패하면 Notion MCP의 fetch를 쓴다 |
+| 노션 링크나 페이지 ID | `notion-blocks` 스킬의 `text`로 본문을 읽는다. `notion-page`의 `get --blocks`는 최상위 블록만 돌려주니 쓰지 않는다. PAT가 실패하면 Notion MCP의 `notion-fetch`를 쓴다 |
 | 웹 링크 | WebFetch를 쓰고, prompt에 "요약하지 말고 본문을 제목 구조와 함께 그대로 돌려줘"라고 적는다. 잘리면 offset으로 이어 읽는다 |
-| 로그인이 필요하거나 스크립트로 그리는 웹 페이지 | 내장 브라우저로 열고 `get_page_text`로 읽는다 |
+| 로그인이 필요하거나 스크립트로 그리는 웹 페이지 | 브라우저 도구(Claude in Chrome 등)가 있으면 그 페이지를 열고 본문 텍스트를 읽는다. 없으면 사용자에게 본문을 붙여 달라고 한다 |
 | 로컬 파일, PDF | Read로 읽는다. PDF는 20쪽씩 나눠 읽는다 |
 | 붙여넣은 글 | 그대로 쓴다 |
 
@@ -26,9 +26,13 @@ description: Turn a long document the user is reading (Notion page, web article,
 
 ### 노션 본문 이미지
 
-분석 문서는 수치가 본문보다 차트 이미지에 더 많이 들어 있다. 본문에 `<image source="notion-file-block://...">`가 있으면 내려받아 읽는다.
+분석 문서는 수치가 본문보다 차트 이미지에 더 많이 들어 있다. 노션에 올린 이미지는 내려받아 읽는다.
 
-1. 이미지의 `notion-file-block://` 참조를 원문 그대로 모아 Notion MCP의 `get_file_download_urls`에 넘긴다(한 번에 25개까지).
+`notion-blocks text`는 올린 이미지를 URL 없이 `![캡션]`이나 `![이미지]`로만 적는다(외부 링크 이미지만 URL이 붙는다).
+이런 줄이 하나라도 있으면 같은 페이지를 Notion MCP의 `notion-fetch`로 한 번 더 읽어 `<image source="notion-file-block://...">` 참조를 얻는다.
+처음부터 `notion-fetch`로 읽었으면 그 결과를 그대로 쓴다.
+
+1. 이미지의 `notion-file-block://` 참조를 원문 그대로 모아 Notion MCP의 `notion-get-file-download-urls`에 넘긴다(한 번에 25개까지).
    받은 URL은 5분 뒤 만료되니 받자마자 바로 내려받는다. 만료됐으면 다시 받는다.
 2. 세션 scratchpad 디렉터리(없으면 OS 임시 디렉터리) 아래에 빈 하위 디렉터리를 만들고 `curl`로 내려받는다.
    파일 이름은 본문에 나온 순서대로 `1.png`, `2.png`처럼 붙인다. HTTP 상태가 200인지 확인한다.
@@ -50,9 +54,12 @@ description: Turn a long document the user is reading (Notion page, web article,
 - 원문이 3천 자 이하면 한 줄과 TL;DR, 핵심 내용만 쓴다. 글자 수에는 이미지를 넣지 않는다.
   차트가 여럿인 분석 문서는 짧아도 구조 지도를 쓴다.
 - 3만 자 이하면 직접 처리한다.
-- 그보다 길면 원문을 제목 단위로 3~6덩이로 나눠 서브에이전트에 맡긴다. 프롬프트는 한국어로 쓰고,
-  덩이마다 다음을 돌려받는다: 섹션별 요약 1~2줄, 핵심 주장과 근거, 결정 사항과 할 일, 낯선 용어.
-  합칠 때 겹치는 내용은 하나로 줄이고, 덩이 사이에서 앞뒤가 맞지 않는 주장은 그대로 드러낸다.
+- 그보다 길면 원문을 제목 단위로 3~6덩이로 나눠 서브에이전트에 맡긴다.
+  - 원문을 scratchpad의 파일 하나로 저장하고, 서브에이전트에는 파일 경로와 맡을 줄 범위만 준다. 본문을 프롬프트에 옮겨 붙이지 않는다.
+  - 차트 이미지는 나누기 전에 직접 읽고, 읽은 수치를 해당 이미지 자리에 `[차트 N: ...]`로 적어 둔 뒤 저장한다. 서브에이전트는 이미지를 읽지 않는다.
+  - 프롬프트는 한국어로 쓰고, 덩이마다 다음을 돌려받는다: 섹션별 요약 1~2줄, 핵심 주장과 근거, 결정 사항과 할 일, 낯선 용어.
+    서브에이전트가 돌려준 것은 재료다. digest 문장은 4절 기준으로 직접 쓴다.
+  - 합칠 때 겹치는 내용은 하나로 줄이고, 덩이 사이에서 앞뒤가 맞지 않는 주장은 그대로 드러낸다.
 
 ## 4. digest 형식
 
@@ -107,7 +114,11 @@ description: Turn a long document the user is reading (Notion page, web article,
   "풀 분리의 비용은 PvPvE 쪽에만 생겼다"가 아니라 "매칭이 나빠진 곳은 PvPvE 풀뿐입니다"로 쓴다.
 - 수치에는 단위(건, 초, %, %p)를 붙이고, 무엇의 수치인지 문장이나 라벨에 밝힌다.
 - 엠대시(`—`)와 가운뎃점(`·`)을 쓰지 않는다. 조사는 영단어, 숫자, 괄호 뒤에도 붙여 쓴다.
-- `ko-dev-style` 스킬을 쓸 수 있으면 내보내기 전에 그 점검을 거친다.
+
+### 보여 주기 전에 확인
+
+- digest의 숫자, 날짜, 이름을 원문과 한 번 더 대조한다. 차트에서 읽은 수치에 `(차트)`가 붙었는지 본다.
+- 원문을 끝까지 읽지 못했거나 못 읽은 이미지가 있으면 맨 위에 적었는지 본다.
 
 ## 5. 내보내기
 
@@ -122,6 +133,8 @@ description: Turn a long document the user is reading (Notion page, web article,
 - **노션**: `notion-page` 스킬로 새 페이지를 만든다. 위치를 말하지 않았으면 어디에 둘지 묻는다.
   원문 페이지 안에 쓰거나 원문을 고치지 않는다.
 - **파일**: 현재 작업 디렉터리의 `digests/<원문 제목 슬러그>.md`에 쓴다.
+
+저장하는 글은 세션 밖으로 나가는 글이라, `ko-dev-style` 스킬을 쓸 수 있으면 저장 전에 그 점검을 거친다. 채팅이나 위젯에만 보여 줄 때는 거치지 않는다.
 
 ## 6. 이어지는 질문
 
