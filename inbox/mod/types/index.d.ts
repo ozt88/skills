@@ -10,6 +10,8 @@ export type Item = {
   tags: string[]
   // `YYYY-MM-DD`, or null when the item has no `due:`.
   due: string | null
+  // `work:<name>`: the worker's note is `work/<name>.md` under the inbox folder; null when none.
+  work: string | null
   isDone: boolean
 }
 
@@ -24,6 +26,8 @@ declare module 'claude-code' {
       today: string
       // The band was dismissed for this session.
       isBandHidden: boolean
+      // This session is the unattended worker: tool calls that change anything outside the inbox folder are refused.
+      isWorker: boolean
     }
   }
 }

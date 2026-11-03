@@ -1,7 +1,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import { append, complete, dayOf, dueLabel, nextPrompt, openItems, parse, urgentItems } from './todo'
+import { GUARD_NOTE, sideEffect, WORKER_MARK } from './guard'
+import { append, complete, dayOf, dueLabel, nextPrompt, openItems, parse, urgentItems, workPrompt } from './todo'
 
 const PANE = 'inbox'
 const REFRESH_MS = 60_000
@@ -10,6 +11,7 @@ const items = atom({ plugin: 'inbox', key: 'items' } as const, [])
 const error = atom({ plugin: 'inbox', key: 'error' } as const, null)
 const today = atom({ plugin: 'inbox', key: 'today' } as const, '')
 const isBandHidden = atom({ plugin: 'inbox', key: 'isBandHidden' } as const, false)
+const isWorker = atom({ plugin: 'inbox', key: 'isWorker' } as const, false)
 
 // One folder for every session, whatever repository it runs in: `INBOX_DIR`, else `~/inbox`.
 async function inboxDir($: EngineInterface): Promise<string> {
@@ -66,6 +68,20 @@ export const register: Register = on => {
     return result
   })
 
+  // The scheduled worker opens its prompt with WORKER_MARK. From then on the session is fenced,
+  // and the note tells the worker the fence is up; without it the worker stops on its own.
+  on('prompt.submit', async ($, e, next) => {
+    if (!e.text.trimStart().startsWith(WORKER_MARK)) return next(e)
+    await update($, isWorker, () => true)
+    return next({ ...e, context: [...(e.context ?? []), GUARD_NOTE] })
+  })
+
+  on('tool.call', async ($, e, next) => {
+    if (!(await read($, isWorker))) return next(e)
+    const why = sideEffect(e as unknown as Record<string, unknown>, await inboxDir($))
+    return why === null ? next(e) : { deny: `inbox 작업 세션: ${why}` }
+  })
+
   on('command.run', { command: 'todo' }, async ($, e) => {
     if (e.args.trim() !== '') {
       return { text: (await add($, e.args)) ? `추가함: ${e.args.trim()}` : (await read($, error)) ?? '추가하지 못함' }
@@ -111,6 +127,13 @@ export const register: Register = on => {
                 <Text dimColor color={item.due !== null && dueLabel(item.due, day).includes('지남') ? 'red' : undefined}>
                   {[item.due !== null ? dueLabel(item.due, day) : '', ...item.tags.map(t => `#${t}`)].filter(Boolean).join(' ')}
                 </Text>
+              )}
+              {item.work !== null && (
+                <Button
+                  key={`work-${item.line}`}
+                  label="Claude가 미리 해 둔 것 보기"
+                  onPress={async () => void $.prompt.submit({ text: workPrompt(await inboxDir($), item) })}
+                />
               )}
             </Box>
           </Box>

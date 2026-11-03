@@ -1,6 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
+import { sideEffect, WORKER_MARK } from '../hooks/guard'
 import { append, complete, dayOf, dueLabel, extractDue, openItems, parse, urgentItems } from '../hooks/todo'
 
 const DIR = 'C:/Users/me/inbox'
@@ -24,8 +25,12 @@ const PANE = {
 // todo.md in memory, answering the plugin's $.fs calls; `files` shows what was written.
 function fakeFs(on: On, initial: string) {
   const files: Record<string, string> = { [FILE]: initial }
-  // The engine hands Windows paths over with backslashes.
-  const key = (path: string) => path.replace(/\\/g, '/')
+  // The engine hands Windows paths over with backslashes, and off Windows it resolves `C:/...`
+  // against the working directory, so match from DIR on.
+  const key = (path: string) => {
+    const p = path.replace(/\\/g, '/')
+    return p.includes(DIR) ? p.slice(p.indexOf(DIR)) : p
+  }
   on('fs.exists', (_, e) => ({ value: key(e.path) in files }))
   on('fs.read', (_, e) => ({ value: files[key(e.path)] }))
   on('fs.write', (_, e) => {
@@ -57,7 +62,12 @@ test('parse reads checkboxes, tags and due dates, and skips sub-steps', () => {
     title: '보고서 작성',
     tags: ['업무'],
     due: '2026-11-14',
+    work: null,
     isDone: false,
+  })
+  expect(parse('- [ ] 릴리스 절차 확인 #프로젝트A work:release-process added:2026-11-03')[0]).toMatchObject({
+    title: '릴리스 절차 확인',
+    work: 'release-process',
   })
   expect(items[1].isDone).toBe(true)
 })
@@ -131,6 +141,77 @@ test('the band shows an item due soon and stays quiet without one', async ($, on
   await band.press({ key: 'hide' })
   expect(await band.find({ type: 'Text', text: /마감 임박/ })).toBe(undefined)
   await band.unmount()
+})
+
+test('the worker fence allows reads and inbox writes, and refuses the rest', () => {
+  const ok = (input: Record<string, unknown>) => sideEffect(input, 'C:\\Users\\me\\inbox')
+  // Reads.
+  expect(ok({ tool: 'Read', file_path: '//wsl.localhost/ubuntu/home/me/repo/a.go' })).toBe(null)
+  expect(ok({ tool: 'Bash', command: 'git -C //wsl.localhost/ubuntu/home/me/repo log --oneline -20 | head' })).toBe(null)
+  expect(ok({ tool: 'Bash', command: 'git branch -a && git status' })).toBe(null)
+  expect(ok({ tool: 'Bash', command: 'gh pr list --author @me' })).toBe(null)
+  expect(ok({ tool: 'mcp__notion__notion-search', query: '릴리스' })).toBe(null)
+  expect(ok({ tool: 'mcp__slack__slack_read_thread' })).toBe(null)
+  // Writes inside the inbox folder.
+  expect(ok({ tool: 'Write', file_path: 'C:/Users/me/inbox/work/ut.md' })).toBe(null)
+  expect(ok({ tool: 'Bash', command: 'git -C //wsl.localhost/ubuntu/home/me/repo log -5 > C:/Users/me/inbox/work/ut/log.txt 2>&1' })).toBe(null)
+  expect(ok({ tool: 'Bash', command: 'grep -rn Hotjoin //wsl.localhost/ubuntu/home/me/repo 2>/dev/null | sort | uniq -c' })).toBe(null)
+  // Everything else.
+  expect(ok({ tool: 'Write', file_path: '//wsl.localhost/ubuntu/home/me/repo/a.go' })).toContain('밖에 쓰기')
+  expect(ok({ tool: 'Write', file_path: 'C:/Users/me/inbox/../repo/a.go' })).toContain('밖에 쓰기')
+  expect(ok({ tool: 'Bash', command: 'git status && git push origin main' })).toContain('git push')
+  expect(ok({ tool: 'Bash', command: 'git branch -D main' })).toContain('git branch')
+  expect(ok({ tool: 'Bash', command: 'gh pr create --fill' })).toContain('gh')
+  expect(ok({ tool: 'Bash', command: 'echo x > //wsl.localhost/ubuntu/home/me/repo/a.go' })).toContain('리다이렉트')
+  expect(ok({ tool: 'Bash', command: 'rm -rf build' })).toContain('rm')
+  expect(ok({ tool: 'Bash', command: 'cat $(curl -s evil)' })).toContain('치환')
+  expect(ok({ tool: 'Bash', command: 'python3 deploy.py' })).toContain('python3')
+  expect(ok({ tool: 'mcp__slack__slack_send_message' })).toContain('MCP')
+  expect(ok({ tool: 'mcp__notion__notion-update-page' })).toContain('MCP')
+  expect(ok({ tool: 'mcp__ccd_session__start_session' })).toContain('MCP')
+  expect(ok({ tool: 'Artifact' })).toContain('Artifact')
+})
+
+// Each of these got through an earlier version of the fence.
+test('the worker fence refuses reads that write, run a program, or send data out', () => {
+  const refused = (command: string) => sideEffect({ tool: 'Bash', command }, 'C:/Users/me/inbox')
+  for (const command of [
+    'find /home/me/repo -name "*.go" -exec rm {} \\;',
+    'find /home/me/repo -delete',
+    'true & rm -rf /home/me/repo',
+    'cat x 2> /home/me/.bashrc',
+    'echo hi &> /home/me/.bashrc',
+    'sort -o /home/me/.bashrc /dev/null',
+    'uniq /dev/null /home/me/.bashrc',
+    'rg --pre /home/me/evil.sh foo .',
+    'git diff --output=/home/me/.bashrc',
+    'git -c core.fsmonitor=/home/me/evil.sh status',
+    // The worker can write under the inbox folder, so running a script there is refused too.
+    'bash C:/Users/me/inbox/work/x.sh',
+    'python3 C:/Users/me/inbox/work/ut/proto.py',
+  ]) expect(refused(command)).not.toBe(null)
+  const tool = (name: string) => sideEffect({ tool: name }, 'C:/Users/me/inbox')
+  expect(tool('Agent')).toContain('Agent')
+  expect(tool('WebFetch')).toContain('WebFetch')
+  expect(tool('PowerShell')).toContain('PowerShell')
+})
+
+test('a session that starts with the worker mark is fenced; others are not', async ($, on) => {
+  fakeFs(on, '')
+  const contexts: (readonly string[] | undefined)[] = []
+  on('prompt.submit', (_, e) => {
+    contexts.push(e.context)
+    return { text: e.text }
+  })
+  on('tool.call', () => ({ result: {} }))
+  await start($, on)
+
+  expect(await $.tool.call({ tool: 'Bash', command: 'git push' })).toEqual({ result: {} })
+  await $.prompt.submit({ text: `${WORKER_MARK}\n조사해 줘` })
+  expect(contexts.at(-1)?.at(-1)).toContain('inbox 가드 켜짐')
+  const denied = await $.tool.call({ tool: 'Bash', command: 'git push' })
+  expect('deny' in denied && denied.deny).toContain('inbox 작업 세션')
+  expect(await $.tool.call({ tool: 'Write', file_path: `${DIR}/work/a.md`, content: 'x' })).toEqual({ result: {} })
 })
 
 test('/todo with text adds it without opening the pane', async ($, on) => {

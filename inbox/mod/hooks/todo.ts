@@ -15,7 +15,9 @@ const ITEM = /^- \[([ xX])\] (.*)$/
 // A lookahead, not `\b`: `\b` sees no boundary after a Korean tag like `#업무`.
 const DUE = /(?:^|\s)due:(\d{4}-\d{2}-\d{2})(?=\s|$)/
 const TAG = /(?:^|\s)#([^\s#]+)/g
-const META = /(?:^|\s)(?:#[^\s#]+|(?:due|added|done):\d{4}-\d{2}-\d{2})(?=\s|$)/g
+// `work:<name>`: the worker's note for the item, `work/<name>.md` under the inbox folder.
+const WORK = /(?:^|\s)work:([\w.-]+)(?=\s|$)/
+const META = /(?:^|\s)(?:#[^\s#]+|(?:due|added|done):\d{4}-\d{2}-\d{2}|work:[\w.-]+)(?=\s|$)/g
 
 export function parse(body: string): Item[] {
   const out: Item[] = []
@@ -29,6 +31,7 @@ export function parse(body: string): Item[] {
       title: rest.replace(META, '').trim() || rest.trim(),
       tags: [...rest.matchAll(TAG)].map(t => t[1]),
       due: DUE.exec(rest)?.[1] ?? null,
+      work: WORK.exec(rest)?.[1] ?? null,
       isDone: m[1] !== ' ',
     })
   })
@@ -124,9 +127,16 @@ export function complete(body: string, item: Item, today: string): string | null
   return lines.join('\n')
 }
 
+export const workPrompt = (dir: string, item: Item): string =>
+  `${dir}/work/${item.work}.md 를 읽고, "${item.title}" 항목에 Claude가 미리 해 둔 것을 정리해 줘.\n` +
+  '- 알아낸 것과 만든 것(프로토타입 위치 포함)을 짧게, 내가 답하거나 정해야 할 것을 먼저 보여 준다.\n' +
+  '- 이어서 할 일을 제안하고, 저장소 작업이 필요하면 projects.md에서 저장소를 찾아 새 세션을 시작할지 묻는다.'
+
 export const nextPrompt = (dir: string): string =>
   `할 일 목록에서 지금 할 일 하나를 골라 줘.\n` +
-  `- 읽을 파일: ${dir}/todo.md (할 일), ${dir}/projects.md (태그별 저장소 경로, 없으면 건너뜀)\n` +
+  `- 읽을 파일: ${dir}/todo.md (할 일), ${dir}/projects.md (태그별 저장소 경로, 없으면 건너뜀), ` +
+  `항목에 work:<이름>이 있으면 ${dir}/work/<이름>.md (Claude가 미리 해 둔 조사와 프로토타입)\n` +
+  '- 미리 해 둔 것이 있는 항목은 바로 이어서 할 수 있으니 같은 조건이면 먼저 고른다.\n' +
   '- 기준 순서: 마감 지남 > 3일 안에 마감 > 진행 중인 checkpoint가 있는 항목 > 선행 단계가 끝난 항목 > 오래 묵은 항목\n' +
   '- 고른 항목, 고른 이유 한두 줄, 작업할 저장소를 말한다. 후보가 비슷하면 2순위도 한 줄로 덧붙인다.\n' +
   '- 저장소를 모르거나 #미정이면 어느 저장소에서 할지 묻고, 답을 받으면 projects.md에 태그와 경로를 적는다.\n' +
