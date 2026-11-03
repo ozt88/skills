@@ -53,7 +53,7 @@ A large item can point to a checkpoint graph instead of growing sub-steps here; 
 bash scripts/install-claude.sh
 ```
 
-It copies the mod to `~/.claude/mods/inbox` and adds that folder to `env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`. Re-running is safe. Restart Claude Code afterwards. Set `INBOX_DIR` to keep the list somewhere other than `~/inbox`.
+It copies the mod to `~/.claude/mods/inbox` and adds that folder to `env.CLAUDE_CODE_PLUGIN_DIRS` in `~/.claude/settings.json`. Re-running is safe. Restart Claude Code afterwards. Set `INBOX_DIR` to keep the list somewhere other than `~/inbox`. Run under WSL, the script sets `INBOX_DIR` to the Windows profile's `inbox` folder (for example `/mnt/c/Users/<you>/inbox`) unless it is already set, so WSL sessions, Windows sessions and the scheduled tasks share one list.
 
 The morning task is a desktop scheduled task: ask Claude to create one from [`scheduled/inbox-morning.md`](./scheduled/inbox-morning.md), or add it under Scheduled in the sidebar. It runs while the app is open; a run missed while the app was closed runs at the next launch.
 

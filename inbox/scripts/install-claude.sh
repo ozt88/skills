@@ -26,11 +26,19 @@ mkdir -p "$MOD_DIR"
 (cd "$REPO_ROOT/mod" && tar --exclude=.claude-plugin/types -cf - .) | (cd "$MOD_DIR" && tar -xf -)
 echo "✓ Mod: $MOD_DIR"
 
+# Under WSL the mod sees HOME=/home/<user> while the list lives in the Windows profile, where
+# Windows sessions and the scheduled tasks read it. Point WSL sessions at the same folder.
+WIN_INBOX=""
+if grep -qi microsoft /proc/version 2>/dev/null && command -v cmd.exe &>/dev/null && command -v wslpath &>/dev/null; then
+  WIN_HOME="$(cmd.exe /c 'echo %USERPROFILE%' 2>/dev/null | tr -d '\r')"
+  [ -n "$WIN_HOME" ] && WIN_INBOX="$(wslpath -u "$WIN_HOME")/inbox"
+fi
+
 [ -f "$SETTINGS" ] || echo '{}' > "$SETTINGS"
-"$PY" - "$SETTINGS" "$MOD_DIR" <<'PYEOF'
+"$PY" - "$SETTINGS" "$MOD_DIR" "$WIN_INBOX" <<'PYEOF'
 import json, os, pathlib, sys
 
-path, mod_dir = pathlib.Path(sys.argv[1]), sys.argv[2]
+path, mod_dir, win_inbox = pathlib.Path(sys.argv[1]), sys.argv[2], sys.argv[3]
 text = path.read_text(encoding="utf-8")
 settings = json.loads(text) if text.strip() else {}
 
@@ -39,6 +47,10 @@ env = settings.setdefault("env", {})
 dirs = [d for d in env.get("CLAUDE_CODE_PLUGIN_DIRS", "").split(os.pathsep) if d and d != mod_dir]
 dirs.append(mod_dir)
 env["CLAUDE_CODE_PLUGIN_DIRS"] = os.pathsep.join(dirs)
+# An INBOX_DIR the user set is kept.
+if win_inbox and "INBOX_DIR" not in env:
+    env["INBOX_DIR"] = win_inbox
+    print(f"✓ WSL: env.INBOX_DIR = {win_inbox}")
 
 path.write_text(json.dumps(settings, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 print("✓ Mod registered: env.CLAUDE_CODE_PLUGIN_DIRS")
