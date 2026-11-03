@@ -21,7 +21,7 @@ class TraceabilityTests(unittest.TestCase):
         (self.run / 'reviews').mkdir()
         (self.run / 'snapshot/code.txt').write_bytes(b'original')
         self.docs = {
-            'manifest.json': dict(target_id='T', reviewers=['R1', 'R2'], producer='P', judge='J', files=[dict(original='code', snapshot='snapshot/code.txt', sha256=hashlib.sha256(b'original').hexdigest())]),
+            'manifest.json': dict(target_id='T', purpose='defect-review', reviewers=['R1', 'R2'], producer='P', judge='J', files=[dict(original='code', snapshot='snapshot/code.txt', sha256=hashlib.sha256(b'original').hexdigest())]),
             'reviews/R1.json': dict(target_id='T', reviewer='R1', status='complete', summary='inspected', findings=[dict(id='R1-001', severity='P1', claim='bug', impact='loss', suggestion='fix', evidence=['code line 1'])]),
             'reviews/R2.json': dict(target_id='T', reviewer='R2', status='complete', summary='inspected', findings=[dict(id='R2-001', severity='P2', claim='same bug', impact='loss', suggestion='fix', evidence=['code line 1'])]),
             'judge.json': dict(target_id='T', judge='J', summary='merged', issues=[dict(id='J-001', source_ids=['R1-001', 'R2-001'], verdict='upheld', severity='P1', reason='reproduced', evidence=['reproduction'])]),
@@ -74,6 +74,10 @@ class TraceabilityTests(unittest.TestCase):
         self.docs['manifest.json']['files'][0]['snapshot'] = '../code.txt'
         with self.assertRaises(ValueError): self.run_check()
 
+    def test_non_object_snapshot_entry_rejected(self):
+        self.docs['manifest.json']['files'] = ['snapshot/code.txt']
+        with self.assertRaises(ValueError): self.run_check('reviews')
+
     def test_failed_reviewer_not_silently_successful(self):
         self.docs['reviews/R2.json']['status'] = 'failed'
         result = self.run_check()
@@ -105,10 +109,75 @@ class TraceabilityTests(unittest.TestCase):
 
     def add_evaluation(self):
         self.docs['manifest.json']['purpose'] = 'evaluation'
-        self.docs['reviews/R1.json']['assessments'] = [dict(id='R1-E01', question='Which alternative?', criteria=['User: priority undecided; reviewer proposal: readability'], observation='A is dense; B uses larger text', interpretation='Depends on task', unknowns=['task priority'], next_action='Compare same data')]
+        self.docs['manifest.json']['goals'] = [dict(id='G1', text='Readers find the answer fast', source='user request')]
+        for seat, lens in (('R1', 'architect'), ('R2', 'skeptic')):
+            self.docs[f'reviews/{seat}.json']['lens'] = lens
+            self.docs[f'reviews/{seat}.json']['expectations'] = [dict(goal_id='G1', condition='The answer is in the first screen')]
+        self.docs['reviews/R1.json']['assessments'] = [dict(id='R1-E01', question='Which alternative?', criteria=['User: priority undecided; reviewer proposal: readability'], observation='A is dense; B uses larger text', interpretation='Depends on task', unknowns=['task priority'], next_action='Compare same data', goal_ids=['G1'])]
         self.docs['judge.json']['assessments'] = [dict(id='A-001', source_ids=['R1-E01'], conclusion='Conditional choice', reason='No priority set', next_action='Compare tasks', decision_owner='user', evidence=['R1-E01'])]
+        self.docs['judge.json']['goal_attainment'] = [dict(goal_id='G1', status='partial', reason='Only B puts the answer first', evidence=['R1-E01'], source_ids=['R1-E01'])]
         self.docs['producer.json']['assessment_responses'] = [dict(assessment_id='A-001', reason='Priority belongs to user', action='Prepare comparison; do not choose', evidence=['plan'])]
         self.docs['verification.json']['assessment_results'] = [dict(assessment_id='A-001', status='decision-needed', reason='Preference remains open', evidence=['comparison plan'])]
+
+    def test_purpose_defaults_to_evaluation(self):
+        del self.docs['manifest.json']['purpose']
+        with self.assertRaises(ValueError): self.run_check('reviews')
+        self.add_evaluation()
+        del self.docs['manifest.json']['purpose']
+        self.assertEqual(self.run_check()['purpose'], 'evaluation')
+
+    def test_evaluation_requires_goals(self):
+        self.add_evaluation()
+        self.docs['manifest.json']['goals'] = []
+        with self.assertRaises(ValueError): self.run_check('reviews')
+
+    def test_reviewer_must_write_expectations_for_every_goal(self):
+        self.add_evaluation()
+        self.docs['manifest.json']['goals'].append(dict(id='G2', text='Nothing extra to maintain', source='user request'))
+        self.docs['judge.json']['goal_attainment'].append(dict(goal_id='G2', status='met', reason='no extras', evidence=['R2']))
+        with self.assertRaises(ValueError): self.run_check('reviews')
+
+    def test_expectation_for_unknown_goal_rejected(self):
+        self.add_evaluation()
+        self.docs['reviews/R2.json']['expectations'].append(dict(goal_id='G9', condition='x'))
+        with self.assertRaises(ValueError): self.run_check('reviews')
+
+    def test_reviewer_needs_lens(self):
+        self.add_evaluation()
+        del self.docs['reviews/R2.json']['lens']
+        with self.assertRaises(ValueError): self.run_check('reviews')
+
+    def test_failed_reviewer_needs_no_expectations(self):
+        self.add_evaluation()
+        self.docs['reviews/R2.json']['status'] = 'failed'
+        del self.docs['reviews/R2.json']['expectations']
+        self.assertEqual(self.run_check()['failed_reviewers'], ['R2'])
+
+    def test_judge_must_judge_every_goal(self):
+        self.add_evaluation()
+        self.docs['judge.json']['goal_attainment'] = []
+        with self.assertRaises(ValueError): self.run_check('judge')
+
+    def test_invalid_goal_status_rejected(self):
+        self.add_evaluation()
+        self.docs['judge.json']['goal_attainment'][0]['status'] = 'good'
+        with self.assertRaises(ValueError): self.run_check('judge')
+
+    def test_goal_attainment_reported(self):
+        self.add_evaluation()
+        self.assertEqual(self.run_check('judge')['goal_attainment'], dict(G1='partial'))
+
+    def test_removal_without_broken_goal_is_overdesign(self):
+        self.add_evaluation()
+        self.docs['reviews/R2.json']['removals'] = [dict(element='cache layer', breaks_goals=[], reason='no goal needs it'), dict(element='index', breaks_goals=['G1'], reason='lookup slows')]
+        self.assertEqual(self.run_check('reviews')['overdesign_candidates'], ['R2: cache layer'])
+
+    def test_verifier_regoal_must_cover_goals(self):
+        self.add_evaluation()
+        self.docs['verification.json']['goal_attainment'] = [dict(goal_id='G1', status='met', reason='revised', evidence=['new snapshot'])]
+        self.assertEqual(self.run_check()['final_goal_attainment'], dict(G1='met'))
+        self.docs['verification.json']['goal_attainment'] = []
+        with self.assertRaises(ValueError): self.run_check()
 
     def test_conditional_evaluation_preserves_user_choice(self):
         self.add_evaluation()

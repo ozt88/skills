@@ -57,6 +57,27 @@ def safe(root, name):
     return result
 
 
+def goal_refs(values, goals, label):
+    unique(values, label)
+    need(set(values) <= set(goals), f'{label}: unknown goal')
+
+
+def attainment(items, goals, evaluations, label):
+    """One status per goal, so no goal is left unjudged."""
+    statuses = {}
+    for item in items:
+        text_fields(item, ['goal_id', 'reason'])
+        need(item.get('status') in ('met', 'partial', 'unmet', 'unknown'), f'{label}: invalid goal status')
+        evidence(item)
+        sources = optional_array(item, 'source_ids')
+        unique(sources, f'{label} sources')
+        need(set(sources) <= set(evaluations), f'{label}: unknown assessment reference')
+        need(item['goal_id'] not in statuses, f'{label}: duplicate goal')
+        statuses[item['goal_id']] = item['status']
+    need(set(statuses) == set(goals), f'{label}: goal coverage mismatch')
+    return statuses
+
+
 def check(run, phase='verification'):
     need(phase in ('reviews', 'judge', 'producer', 'verification'), 'unknown phase')
     manifest = load(run / 'manifest.json')
@@ -66,14 +87,23 @@ def check(run, phase='verification'):
     unique(seats + [manifest['producer'], manifest['judge']], 'roles')
     files = array(manifest, 'files')
     need(bool(files), 'snapshot files required')
-    unique([item.get('snapshot') for item in files], 'snapshot files')
     for item in files:
         text_fields(item, ['original', 'snapshot', 'sha256'])
+    unique([item['snapshot'] for item in files], 'snapshot files')
+    for item in files:
         path = safe(run, item['snapshot'])
         need(hashlib.sha256(path.read_bytes()).hexdigest() == item['sha256'], f"snapshot changed: {item['snapshot']}")
     target = manifest['target_id']
-    need(manifest.get('purpose', 'defect-review') in ('defect-review', 'evaluation'), 'unknown review purpose')
-    findings, failed, evaluations = [], [], []
+    purpose = manifest.get('purpose', 'evaluation')
+    need(purpose in ('defect-review', 'evaluation'), 'unknown review purpose')
+    goals = []
+    if purpose == 'evaluation':
+        for goal in array(manifest, 'goals'):
+            text_fields(goal, ['id', 'text', 'source'])
+            goals.append(goal['id'])
+        need(bool(goals), 'evaluation purpose requires goals')
+        unique(goals, 'goals')
+    findings, failed, evaluations, overdesign = [], [], [], []
     for seat in seats:
         # IDs are file components, never arbitrary paths.
         need(seat.isascii() and seat.replace('-', '').replace('_', '').isalnum(), 'invalid reviewer filename ID')
@@ -83,6 +113,19 @@ def check(run, phase='verification'):
         need(review.get('status') in ('complete', 'failed'), 'invalid review status')
         if review['status'] == 'failed':
             failed.append(seat)
+        elif purpose == 'evaluation':
+            text_fields(review, ['lens'])
+            # Written from the goals alone, before the target was read.
+            expected = []
+            for item in array(review, 'expectations'):
+                text_fields(item, ['goal_id', 'condition'])
+                expected.append(item['goal_id'])
+            need(set(expected) == set(goals), 'expectations must cover every goal')
+        for removal in optional_array(review, 'removals'):
+            text_fields(removal, ['element', 'reason'])
+            goal_refs(array(removal, 'breaks_goals'), goals, 'removal goals')
+            if not removal['breaks_goals']:
+                overdesign.append(f"{seat}: {removal['element']}")
         for finding in array(review, 'findings'):
             text_fields(finding, ['id', 'claim', 'impact', 'suggestion'])
             need(finding['id'].startswith(seat + '-'), 'finding ID owner mismatch')
@@ -95,15 +138,17 @@ def check(run, phase='verification'):
             criteria = array(assessment, 'criteria')
             need(bool(criteria) and all(isinstance(v, str) and v.strip() for v in criteria), 'assessment criteria required')
             need(all(isinstance(v, str) and v.strip() for v in array(assessment, 'unknowns')), 'invalid unknowns')
+            goal_refs(optional_array(assessment, 'goal_ids'), goals, 'assessment goals')
             evaluations.append(assessment['id'])
     unique(findings, 'findings')
     unique(evaluations, 'assessments')
     need(not set(evaluations) & set(findings), 'assessment/finding IDs overlap')
-    if manifest.get('purpose') == 'evaluation':
+    if purpose == 'evaluation':
         need(bool(evaluations), 'evaluation purpose requires assessment output')
-    result = dict(structure_valid=True, phase=phase, reviewers=len(seats), failed_reviewers=failed, findings=len(findings))
+    result = dict(structure_valid=True, phase=phase, purpose=purpose, reviewers=len(seats), failed_reviewers=failed, findings=len(findings))
     result['evaluations'] = len(evaluations)
-    result['limitation'] = '누락·연결·snapshot 해시만 검사한다. 역할 신원·독립성·근거 진실성·합의·사용자 승인을 보증하지 않는다.'
+    result['overdesign_candidates'] = overdesign
+    result['limitation'] = '누락, 연결, snapshot 해시만 검사한다. 역할 신원, 독립성, 근거의 진실성, 합의, 사용자 승인은 보증하지 않는다.'
     if phase == 'reviews':
         return result
     judge = load(run / 'judge.json')
@@ -140,6 +185,9 @@ def check(run, phase='verification'):
     unique(assessment_ids, 'Judge assessments')
     coverage(assessment_sources, evaluations, 'Judge evaluation coverage')
     result['assessments'] = len(assessment_ids)
+    if purpose == 'evaluation':
+        result['goal_attainment'] = attainment(array(judge, 'goal_attainment'), goals, evaluations, 'Judge goal attainment')
+    need(all(isinstance(v, str) and v.strip() for v in optional_array(judge, 'strengths')), 'invalid strengths')
     if phase == 'judge':
         return result
     producer = load(run / 'producer.json')
@@ -184,6 +232,9 @@ def check(run, phase='verification'):
             pending.append(dict(assessment_id=item['assessment_id'], status=item['status']))
     coverage(assessment_checks, assessment_ids, 'verification assessment coverage')
     result['pending_assessments'] = pending
+    # Optional: the verifier re-judges goals when the producer revised the target.
+    if purpose == 'evaluation' and 'goal_attainment' in verification:
+        result['final_goal_attainment'] = attainment(array(verification, 'goal_attainment'), goals, evaluations, 'verification goal attainment')
     result.update(unresolved=unresolved, all_seats_complete=not failed)
     return result
 
