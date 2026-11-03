@@ -22,6 +22,8 @@
 
 A graph with no executable node left moves as a whole to `<project-root>/.checkpoint/archive/graphs/<slug>/`. The location is the completion signal. `next` skips archived graphs unless the user asks for one.
 
+An active graph is stale when it still has open nodes and index.md has not changed for 30 days, whether or not a node is In Progress (a node left In Progress that long is usually abandoned). Stale graphs are offered for Parked (with a `parked_until` condition) or for the archive; nothing moves without the user's yes.
+
 If the project is a git repository and `.checkpoint/` is not ignored, mention it once. Do not edit `.gitignore` without asking.
 
 ## index.md
@@ -90,7 +92,7 @@ Files and CP-ADRs to read before starting.
 - Remaining risks:
 ```
 
-- Progress Snapshot exists while the node is not Done. Rewrite it in place; do not append dated logs above it.
+- Progress Snapshot exists while the node is not Done. It holds the current state only. Replace it whole on every save; never append rounds ("1차, 2차", dated entries). A decision a round produced moves to the Output Contract or DECISIONS.md; the rest is dropped. Stopping point and Next action are one line each — they are read at a glance (the band and pane show them on one line).
 - Output Contract is required when the node is Done. Write the result the next session builds on, not the story of how it was reached.
 - A `Status:` line in a node file is optional and must match `index.md`.
 
@@ -124,7 +126,9 @@ Run from this skill's directory:
 python3 scripts/check_graph.py <graph-dir>
 ```
 
-It reports missing files, rows listed twice, unknown status words, missing or empty Output Contract or Progress Snapshot sections, status lines that disagree with `index.md`, unknown or cyclic dependencies, Ready nodes whose dependencies are not Done, unlisted node files, and graphs that should be archived.
+It reports missing files, rows listed twice, unknown status words, missing or empty Output Contract or Progress Snapshot sections, status lines that disagree with `index.md`, unknown or cyclic dependencies, Ready nodes whose dependencies are not Done, unlisted node files, Progress Snapshots that grew past the current state (too long, or kept as rounds), stale graphs, and graphs that should be archived.
+
+`python3 scripts/check_graph.py --all <project-root>` checks every active graph of a project and ends with the graphs to archive and to park.
 
 Then check by reading:
 - `index.md` holds routing, not paragraphs of context.

@@ -8,7 +8,7 @@ Read local files first. Ask the user only what files cannot answer and what woul
 
 Settle:
 - What concrete output ends this work, and what is out of scope.
-- Granularity: one node is about one focused session. Merge steps of the same session; split on different goals, dependencies, approval gates or blockers.
+- Granularity: one node is one future session. For each candidate ask: will this run after a /clear or in another session? If it continues in this session, it is not a node; put it in the open node's Next action. Rounds of feedback on the same output stay in one node. Split only on different goals, dependencies, approval gates or blockers.
 - Operations that change what later nodes may read or trust (a migration, a rename, a deletion). Record each as a CP-ADR.
 - The first node must be executable from graph files alone.
 

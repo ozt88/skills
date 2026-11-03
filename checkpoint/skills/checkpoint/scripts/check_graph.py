@@ -2,11 +2,15 @@
 """Mechanical checks for a checkpoint graph directory (see format.md).
 
 Usage: check_graph.py <graph-dir> [<graph-dir> ...]
+       check_graph.py --all <project-root>
 
 Prints one finding per line as "[High|Medium|Low] <slug>: <message>", or "<slug>: OK".
-Exits 1 if any High finding exists. Judgement checks (is index.md still routing only,
-are Output Contracts specific enough) are left to the reader.
+With --all, checks every active graph under <project-root>/.checkpoint/graphs/ and ends
+with the graphs to archive and to park. Exits 1 if any High finding exists. Judgement
+checks (is index.md still routing only, are Output Contracts specific enough) are left
+to the reader.
 """
+import datetime
 import pathlib
 import re
 import sys
@@ -18,6 +22,20 @@ EXECUTABLE = {"ready", "in progress", "blocked", "parked"}
 REPLACED = {"superseded", "split", "merged"}
 # An index.md past this many lines is usually carrying context that belongs in nodes.
 INDEX_LINE_BUDGET = 120
+# A Progress Snapshot holds the current state only (format.md); past this it is usually a log.
+SNAPSHOT_LINE_BUDGET = 12
+# Lines that read as rounds kept in a snapshot: a bullet that opens with a date, "2차" or "round 2",
+# or a round with what was done in it ("1차 확인"). A bare "2차 UT" is a name, not a round.
+ROUND_LINE = re.compile(
+    r"^\s*[-*]\s*\**(\d{4}-\d{2}-\d{2}|\d+\s*차\b|round\s*\d+\b)"
+    r"|\d+\s*차\s*(확인|시도|검토|리뷰|수정|반영)|\bround\s*\d+\b",
+    re.I,
+)
+# index.md unchanged this long while nodes are still open, in progress or not: offer Parked or the archive.
+STALE_DAYS = 30
+# Findings --all collects into its closing lists.
+TO_ARCHIVE = "no executable node left; archive the graph"
+STALE_PREFIX = "stale since "
 
 NODE_ID = re.compile(r"\bN\d+\b")
 NODE_LINK = re.compile(r"(nodes/[^)\s`|]+\.md)")
@@ -73,6 +91,21 @@ def section_filled(body: str, title: str) -> bool | None:
     nxt = re.search(r"^#+\s", rest, re.M)
     lines = rest[:nxt.start() if nxt else len(rest)].splitlines()
     return any(l.strip() and not re.match(r"^\s*[-*]\s*[^:]+:\s*$", l) for l in lines)
+
+
+def snapshot_of(body: str) -> list[str]:
+    """Non-blank lines of the Progress Snapshot section, up to its next heading (Node Candidates included)."""
+    lines = body.splitlines()
+    start = next((i for i, l in enumerate(lines) if re.match(r"^#+\s*progress snapshot", l, re.I)), None)
+    if start is None:
+        return []
+    out = []
+    for l in lines[start + 1:]:
+        if re.match(r"^#{1,2}\s", l):
+            break
+        if l.strip() and not l.startswith("#"):
+            out.append(l)
+    return out
 
 
 def has_cycle(graph: dict[str, list[str]]) -> bool:
@@ -154,6 +187,13 @@ def check(gdir: pathlib.Path) -> list[tuple[str, str]]:
                 out.append(("Medium", f"{nid}: {st} without {label} section"))
             elif not filled:
                 out.append(("Medium", f"{nid}: {st} with {label} section left empty"))
+        if st not in ("done", "handed off", "superseded", "dropped", "split", "merged"):
+            snap = snapshot_of(body)
+            if len(snap) > SNAPSHOT_LINE_BUDGET:
+                out.append(("Medium", f"{nid}: Progress Snapshot has {len(snap)} lines; rewrite it to the current state"))
+            rounds = [l.strip() for l in snap if ROUND_LINE.search(l)]
+            if rounds:
+                out.append(("Medium", f"{nid}: Progress Snapshot keeps rounds ('{rounds[0][:40]}'); replace it whole on save"))
         own = re.search(r"^\**status\**\s*:\s*(.+)$", body, re.I | re.M)
         if own and st and status_of(own.group(1)) != st:
             out.append(("Medium", f"{nid}: node file says '{own.group(1).strip()}' but index.md says {st}"))
@@ -168,23 +208,53 @@ def check(gdir: pathlib.Path) -> list[tuple[str, str]]:
     if archived and live:
         out.append(("Low", f"archived graph still has executable nodes: {', '.join(live)}"))
     if not archived and not live:
-        out.append(("Low", "no executable node left; archive the graph"))
+        out.append(("Low", TO_ARCHIVE))
+    # Stale: open nodes not all parked already, and nothing touched for a while; a node left
+    # In Progress for that long counts too, since abandoned work is the common case.
+    waiting = [n for n in live if nodes[n][0] != "parked"]
+    if not archived and waiting:
+        edited = datetime.date.fromtimestamp(index.stat().st_mtime)
+        if (datetime.date.today() - edited).days >= STALE_DAYS:
+            busy = [n for n in waiting if nodes[n][0] == "in progress"]
+            why = f"{', '.join(busy)} in progress" if busy else "no node in progress"
+            out.append(("Low", f"{STALE_PREFIX}{edited.isoformat()} ({why}); park or archive"))
     return out
 
 
+def report(g: pathlib.Path) -> tuple[bool, list[str]]:
+    """Prints a graph's findings; returns whether any was High, and its findings' messages."""
+    findings = check(g)
+    if not findings:
+        print(f"{g.name}: OK")
+    for sev, msg in findings:
+        print(f"[{sev}] {g.name}: {msg}")
+    return any(sev == "High" for sev, _ in findings), [msg for _, msg in findings]
+
+
 def main() -> int:
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 2 or (sys.argv[1] == "--all" and len(sys.argv) != 3):
         print(__doc__.strip(), file=sys.stderr)
         return 2
+    if sys.argv[1] == "--all":
+        root = pathlib.Path(sys.argv[2]) / ".checkpoint" / "graphs"
+        graphs = sorted(p for p in root.iterdir() if p.is_dir()) if root.is_dir() else []
+        if not graphs:
+            print(f"no active graph under {root}")
+            return 0
+        high, to_archive, to_park = False, [], []
+        for g in graphs:
+            h, msgs = report(g)
+            high |= h
+            if TO_ARCHIVE in msgs:
+                to_archive.append(g.name)
+            if any(m.startswith(STALE_PREFIX) for m in msgs):
+                to_park.append(g.name)
+        print(f"archive: {', '.join(to_archive) or '-'}")
+        print(f"park or archive (stale): {', '.join(to_park) or '-'}")
+        return 1 if high else 0
     high = False
     for arg in sys.argv[1:]:
-        g = pathlib.Path(arg)
-        findings = check(g)
-        if not findings:
-            print(f"{g.name}: OK")
-        for sev, msg in findings:
-            high |= sev == "High"
-            print(f"[{sev}] {g.name}: {msg}")
+        high |= report(pathlib.Path(arg))[0]
     return 1 if high else 0
 
 

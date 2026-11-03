@@ -11,9 +11,10 @@ Record what this session actually did. Future work that has not started is not a
 2. Choose the graph: the opened node's graph, an existing graph this work belongs to, or a new `<slug>`. Apply the location rule in format.md.
 3. Update nodes:
    - finished → `Done` with an Output Contract
-   - unfinished → `In Progress` or `Blocked` with a rewritten Progress Snapshot
+   - unfinished → `In Progress` or `Blocked` with the Progress Snapshot replaced whole (format.md); keep Done so far to what the next session must know
    - started but not shaped enough → Node Candidates in the active node
    - a new node only for work this session performed; finished side work that nothing depends on goes into DECISIONS.md or an Output Contract instead
+   - one goal worked on in this session is one node, however many rounds it took; do not split it by round or by follow-up request
    - unlock nodes whose dependencies are now Done
 4. Add decisions that apply beyond one node to DECISIONS.md.
 5. Update `index.md` last. If no executable node remains, archive the graph.

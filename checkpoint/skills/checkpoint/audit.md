@@ -25,3 +25,7 @@ Use Invalid only when the graph cannot be used until repaired. Otherwise prefer 
 ## Repair
 
 When asked: fix unknown status words, add missing Output Contract or Progress Snapshot sections from what the node already says, make node status lines match `index.md`, move context out of `index.md` into nodes or DECISIONS.md, and mark obsolete nodes Dropped, Superseded or Merged. Ask before deleting anything the user wrote.
+
+## Whole project
+
+`audit all` runs `python3 scripts/check_graph.py --all <project-root>` and lists graphs to archive, to park, and to repair, one line each. Moving them is a repair: ask first.

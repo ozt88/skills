@@ -7,6 +7,8 @@ description: Keeps a resumable ledger of multi-session work in .checkpoint/graph
 
 A checkpoint graph keeps what multi-session work produced (results and decisions, not the conversation) as small nodes on disk. A fresh session reads `index.md` and one node instead of the previous chat, so the user can run `/clear` at every work boundary and keep the context small.
 
+A node is a session boundary, not a task. Make one only for work that will run in a session of its own. Work this session will still do — the next step, a fix asked for after seeing the result, another round of feedback — stays in the open node.
+
 ## Subcommands
 
 The subcommand is the first word of the arguments (`$ARGUMENTS` in Claude Code) or of the user's request.
