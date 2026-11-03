@@ -1,7 +1,7 @@
 import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { append, complete, dayOf, dueLabel, openItems, parse, urgentItems } from '../hooks/todo'
+import { append, complete, dayOf, dueLabel, extractDue, openItems, parse, urgentItems } from '../hooks/todo'
 
 const DIR = 'C:/Users/me/inbox'
 const FILE = `${DIR}/todo.md`
@@ -80,6 +80,23 @@ test('append starts a new file with the header; complete finds a line that moved
     '- [ ] 새로 위에 끼운 항목\n# Inbox\n\n- [x] 보고서 작성 added:2026-11-03 done:2026-11-04\n',
   )
   expect(complete('# Inbox\n', item, '2026-11-04')).toBe(null)
+})
+
+test('deadline words become due dates', () => {
+  // 2026-11-03 is a Tuesday.
+  const due = (text: string) => extractDue(text, '2026-11-03')
+  expect(due('보고서 작성 #업무 11/13까지')).toEqual({ text: '보고서 작성 #업무', due: '2026-11-13' })
+  expect(due('~1/5 연말정산')).toEqual({ text: '연말정산', due: '2027-01-05' })
+  expect(due('리뷰 답변 내일')).toEqual({ text: '리뷰 답변', due: '2026-11-04' })
+  expect(due('PR 정리 금요일까지').due).toBe('2026-11-06')
+  expect(due('PR 정리 화요일').due).toBe('2026-11-03')
+  expect(due('회고 다음주 월요일').due).toBe('2026-11-09')
+  expect(due('회고 월까지').due).toBe('2026-11-09')
+  expect(due('월간 리포트 작성')).toEqual({ text: '월간 리포트 작성', due: null })
+  expect(due('배포 due:2026-12-01 11/13')).toEqual({ text: '배포 due:2026-12-01 11/13', due: '2026-12-01' })
+  expect(append('', '회의록 #업무 11/13까지', '2026-11-03')).toBe(
+    '# Inbox\n\n- [ ] 회의록 #업무 due:2026-11-13 added:2026-11-03\n',
+  )
 })
 
 test('the pane adds an item from its field and checks one off', async ($, on) => {

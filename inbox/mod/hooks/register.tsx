@@ -91,7 +91,7 @@ export const register: Register = on => {
         {Input !== undefined && (
           <Input
             key="add"
-            placeholder="할 일 추가 (예: 보고서 작성 #업무 due:2026-11-14)"
+            placeholder="할 일 추가 (예: 보고서 작성 #업무 11/13까지)"
             submitLabel="추가"
             onSubmit={value => void add($, value)}
           />

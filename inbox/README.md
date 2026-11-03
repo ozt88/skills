@@ -19,6 +19,7 @@ Todos come from everywhere (meetings, Slack, the middle of other work) and belon
 | Mod: pane | `/todo` opens it. A field to add an item, open items with dated ones first, a button to check one off, and a button for `/next`. |
 | Mod: band | Above the prompt in every session, while an item is past due or due within 3 days. Hidden for the session with one press. |
 | Mod: `/todo <text>` | Adds an item without opening the pane. |
+| Deadline words | When adding, the first of `11/13`, `~11/13`, `11/13까지`, `오늘`, `내일`, `모레`, `금요일`, `금까지`, `다음주 월요일` in the text becomes `due:YYYY-MM-DD`, so you never type the format. A month/day already past means next year. |
 | Mod: `/next` | Asks the model to pick one item (past due, due soon, an open checkpoint, unblocked steps, then age), say why, name the repository, and offer to start a session there. |
 | Scheduled task | Weekdays at 9: due items, 1–3 picks for the day, items open over 14 days, items that need a date or tag; moves items done over a week ago to `done.md`. |
 

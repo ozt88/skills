@@ -63,9 +63,51 @@ export function openItems(items: readonly Item[]): Item[] {
 export const urgentItems = (items: readonly Item[], today: string): Item[] =>
   openItems(items).filter(i => i.due !== null && daysUntil(i.due, today) <= SOON_DAYS)
 
-// Appends one open item at the end, creating the header for a new file.
-export function append(body: string, text: string, today: string): string {
-  const line = `- [ ] ${text.replace(/\s+/g, ' ').trim()} added:${today}`
+export function addDays(day: string, n: number): string {
+  const d = new Date(Date.UTC(+day.slice(0, 4), +day.slice(5, 7) - 1, +day.slice(8, 10) + n))
+  return d.toISOString().slice(0, 10)
+}
+
+const WEEKDAYS = '월화수목금토일'
+// Tokens a person types for a deadline, each a whole word: `11/13`, `~11/13`, `11/13까지`,
+// `오늘`, `내일`, `모레`, `금요일`, `금까지`, `다음주 월요일`.
+const MONTH_DAY = /(?:^|\s)~?(\d{1,2})\/(\d{1,2})(?:까지)?(?=\s|$)/
+const RELATIVE = /(?:^|\s)(오늘|내일|모레)(?:까지)?(?=\s|$)/
+const WEEKDAY = /(?:^|\s)(다음\s?주\s?)?([월화수목금토일])(?:요일까지|요일|까지)(?=\s|$)/
+
+// Turns the first deadline word in `text` into a date and removes it. Text that already has
+// `due:` is left as is. A month/day already past means next year; a bare weekday means the next
+// one from today, today included; `다음주` means that day of the following Monday-to-Sunday week.
+export function extractDue(text: string, today: string): { text: string; due: string | null } {
+  const has = DUE.exec(text)
+  if (has !== null) return { text, due: has[1] }
+  const cut = (m: RegExpExecArray) => `${text.slice(0, m.index)} ${text.slice(m.index + m[0].length)}`.replace(/\s+/g, ' ').trim()
+
+  const md = MONTH_DAY.exec(text)
+  if (md !== null && +md[1] >= 1 && +md[1] <= 12 && +md[2] >= 1 && +md[2] <= 31) {
+    const p = (n: string) => n.padStart(2, '0')
+    const year = +today.slice(0, 4)
+    const due = `${year}-${p(md[1])}-${p(md[2])}`
+    return { text: cut(md), due: due < today ? `${year + 1}${due.slice(4)}` : due }
+  }
+  const rel = RELATIVE.exec(text)
+  if (rel !== null) return { text: cut(rel), due: addDays(today, ['오늘', '내일', '모레'].indexOf(rel[1])) }
+  const wd = WEEKDAY.exec(text)
+  if (wd !== null) {
+    const now = (new Date(`${today}T00:00:00Z`).getUTCDay() + 6) % 7
+    const want = WEEKDAYS.indexOf(wd[2])
+    const n = wd[1] ? want - now + 7 : (want - now + 7) % 7
+    return { text: cut(wd), due: addDays(today, n) }
+  }
+  return { text, due: null }
+}
+
+// Appends one open item at the end, creating the header for a new file. A deadline word in the
+// text becomes `due:`, so nobody has to type the date format.
+export function append(body: string, raw: string, today: string): string {
+  const { text, due } = extractDue(raw.replace(/\s+/g, ' ').trim(), today)
+  const tail = due !== null && !DUE.test(text) ? ` due:${due}` : ''
+  const line = `- [ ] ${text}${tail} added:${today}`
   const base = body.trim() === '' ? HEADER : body.endsWith('\n') ? body : `${body}\n`
   return `${base}${line}\n`
 }
