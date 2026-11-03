@@ -17,6 +17,11 @@ raw는 읽기 전용이다. 이 작업 자체는 raw에 기록하지 않는다(C
 장부 명령은 아래에 적힌 그대로, 다른 명령과 `;`, `&&`로 잇지 말고 한 번에 하나씩 실행한다.
 야간 실행은 이 명령만 셸로 허용한다. 디렉터리 확인은 Glob을 쓴다.
 
+## Codex에서 실행
+
+현재 프로젝트 루트에서 설치된 이 스킬의 `scripts/manifest.py` 절대경로를 사용한다. 아래 Claude 전용 명령의 `python3 ~/.claude/skills/knowledge-compile/scripts/manifest.py` 부분을 `python -X utf8 "<설치 경로>/scripts/manifest.py"`로 바꾼다. 디렉터리와 문서는 로컬 파일 도구로 확인한다. 같은 프로젝트에서 컴파일 두 개를 동시에 시작하지 않는다. 재실행 시 raw 날짜로 중복 병합을 방지한다.
+야간 실행을 요청하면 Codex 자동화에 사용자가 고른 프로젝트와 현지 시간을 지정하고 동일한 컴파일 절차를 실행한다. Claude 전용 `compile-all.sh`는 Codex에서 실행하지 않는다. 원시 로그 자동 작성은 프로젝트의 AGENTS.md에 사용자가 요청한 경우만 설정한다.
+
 ## 1. 대상 파일 고르기
 
 `python3 ~/.claude/skills/knowledge-compile/scripts/manifest.py pending .`를 실행한다.

@@ -1,6 +1,6 @@
 # digest 위젯
 
-digest를 채팅 옆 인라인 위젯(`show_widget`)으로 그리는 기준이다. 처음 그릴 때는 `read_me`를 `interactive`, `data_viz` 모듈로 먼저 부른다.
+digest를 채팅 옆 인라인 위젯(`show_widget`)으로 그리는 기준이다. Claude Code에서 처음 그릴 때는 `read_me`를 `interactive`, `data_viz` 모듈로 먼저 부른다.
 위젯에 담은 내용은 채팅 본문에 다시 쓰지 않는다. 채팅에는 두세 줄 안내만 남긴다.
 
 ## 1. 구성

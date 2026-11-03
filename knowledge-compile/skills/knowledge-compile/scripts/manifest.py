@@ -27,14 +27,14 @@ def paths(project):
 
 def load(path):
     if path.exists():
-        return json.loads(path.read_text())
+        return json.loads(path.read_text(encoding="utf-8-sig"))
     return None
 
 
 def save(path, data):
     # 쓰다 끊겨도 장부가 반쯤 쓰인 채 남지 않게 임시 파일에 쓰고 바꿔 끼운다.
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n")
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     os.replace(tmp, path)
 
 
@@ -60,7 +60,7 @@ def pending(project):
     else:
         since = None
         if index.exists():
-            hit = re.search(r"Last compiled:\**\s*(\d{4}-\d{2}-\d{2})", index.read_text())
+            hit = re.search(r"Last compiled:\**\s*(\d{4}-\d{2}-\d{2})", index.read_text(encoding="utf-8-sig"))
             since = hit and hit.group(1)
         out = [p for p in files if since is None or p.stem >= since]
     save(snapshot, {p.name: digest(p) for p in out})

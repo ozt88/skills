@@ -2,7 +2,9 @@
 
 Knowledge Compile turns the work log an agent appends during sessions (`.knowledge/raw/YYYY-MM-DD.md`) into a small set of curated files the next session can read first: decisions, guardrails, anti-patterns, troubleshooting, and an index.
 
-Supported runtime: **Claude Code**.
+Codex 설치와 호출 방법은 [저장소 설치 안내](../README.md#codex)를 참고하세요. 아래는 Claude Code 사용법입니다.
+
+Supported runtime for the instructions below: **Claude Code**.
 
 ---
 

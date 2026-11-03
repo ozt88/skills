@@ -32,7 +32,7 @@ def main():
     index = find_index(Path(data.get("cwd") or ".").resolve())
     if index is None:
         return
-    body = index.read_text(errors="ignore")
+    body = index.read_text(encoding="utf-8-sig", errors="replace")
     if len(body) > MAX_CHARS:
         body = body[:MAX_CHARS] + "\n\n(이하 생략. 전체는 파일을 직접 연다)"
     kdir = index.parent

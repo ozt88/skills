@@ -2,7 +2,9 @@
 
 Digest turns a long document you are reading into something you can absorb in a few minutes. Give it a Notion page, a web article, a PDF, or pasted text, and it returns a layered Korean digest you can stop reading at any level.
 
-Supported runtime: **Claude Code**.
+Codex 설치와 호출 방법은 [저장소 설치 안내](../README.md#codex)를 참고하세요. 아래는 Claude Code 사용법입니다.
+
+Supported runtime for the instructions below: **Claude Code**.
 
 ## Output
 

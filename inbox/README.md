@@ -2,7 +2,9 @@
 
 One todo list for every Claude Code session, whatever repository it runs in. Add items from a pane beside the chat, see what is due soon above the prompt, ask `/next` what to do now, and get a summary every weekday morning.
 
-Supported runtime: **Claude Code** (desktop app; the pane and band also draw in the terminal).
+Codex 설치와 호출 방법은 [저장소 설치 안내](../README.md#codex)를 참고하세요. 아래는 Claude Code 사용법입니다.
+
+Supported runtime for the instructions below: **Claude Code** (desktop app; the pane and band also draw in the terminal).
 
 ---
 
