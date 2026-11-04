@@ -40,13 +40,19 @@ function fakeFs(on: On, initial: string) {
   return files
 }
 
+// Starts a session; the returned list collects the ids of panes the plugin opens.
 async function start($: Parameters<Parameters<typeof test>[1]>[0], on: On) {
+  const opened: string[] = []
   mock.env(on, { INBOX_DIR: DIR })
   mock.clock(on)
   on('command.register', (_, e) => ({ value: { command: e.name } }))
-  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('ui.open', (_, e) => {
+    opened.push(e.id)
+    return { value: { isPlaced: true } }
+  })
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  return opened
 }
 
 const shift = (days: number) => dayOf(new Date(Date.now() + days * 86_400_000))
@@ -214,11 +220,16 @@ test('a session that starts with the worker mark is fenced; others are not', asy
   expect(await $.tool.call({ tool: 'Write', file_path: `${DIR}/work/a.md`, content: 'x' })).toEqual({ result: {} })
 })
 
-test('/todo with text adds it without opening the pane', async ($, on) => {
+test('/todo adds its text without opening the pane, and asks for text when bare', async ($, on) => {
   const files = fakeFs(on, '')
-  await start($, on)
+  const opened = await start($, on)
 
   const ran = await $.command.run({ command: 'todo', args: '테스트 시나리오 재작성 #프로젝트A' })
   expect(ran.text).toBe('추가함: 테스트 시나리오 재작성 #프로젝트A')
   expect(files[FILE]).toContain('# Inbox\n\n- [ ] 테스트 시나리오 재작성 #프로젝트A added:')
+
+  expect((await $.command.run({ command: 'todo', args: '' })).text).toContain('/todo 뒤에 내용')
+  expect(opened).toEqual([])
+  await $.command.run({ command: 'inbox', args: '' })
+  expect(opened).toEqual(['inbox'])
 })

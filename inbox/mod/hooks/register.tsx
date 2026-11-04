@@ -60,7 +60,8 @@ const askNext = async ($: EngineInterface) =>
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
-    await $.command.register({ name: 'todo', description: '할 일 패널을 열거나, 인자로 받은 할 일을 추가한다' })
+    await $.command.register({ name: 'todo', description: '할 일이나 아이디어를 추가한다: /todo <내용>' })
+    await $.command.register({ name: 'inbox', description: '할 일 패널을 연다' })
     await $.command.register({ name: 'next', description: '할 일 목록에서 지금 할 일 하나를 추천받는다' })
     await refresh($)
     // Picks up edits from an editor, the morning task, or another session.
@@ -83,9 +84,11 @@ export const register: Register = on => {
   })
 
   on('command.run', { command: 'todo' }, async ($, e) => {
-    if (e.args.trim() !== '') {
-      return { text: (await add($, e.args)) ? `추가함: ${e.args.trim()}` : (await read($, error)) ?? '추가하지 못함' }
-    }
+    if (e.args.trim() === '') return { text: '/todo 뒤에 내용을 적어 주세요. 예: /todo 셀프체크 작성 #업무 11/13까지' }
+    return { text: (await add($, e.args)) ? `추가함: ${e.args.trim()}` : (await read($, error)) ?? '추가하지 못함' }
+  })
+
+  on('command.run', { command: 'inbox' }, async $ => {
     await refresh($)
     await $.ui.open({ id: PANE, title: '할 일' })
     return { text: '할 일 패널을 열었습니다.' }
