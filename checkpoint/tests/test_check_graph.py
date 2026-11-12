@@ -23,10 +23,12 @@ class GraphTests(unittest.TestCase):
                      ('[N2-console](nodes/N2-console.md)', 'Ready', 'depends_on N1')]
         self.files = {'N1-ban.md': DONE, 'N2-console.md': READY}
 
+        self.extra = ''
+
     def findings(self):
         table = ['## Nodes', '| Node | Status | Edges | Summary |', '|---|---|---|---|']
         table += [f'| {n} | {s} | {e} | x |' for n, s, e in self.rows]
-        (self.graph / 'index.md').write_text('# G\n\n' + '\n'.join(table) + '\n', encoding='utf-8')
+        (self.graph / 'index.md').write_text('# G\n\n' + '\n'.join(table) + '\n' + self.extra, encoding='utf-8')
         for name, body in self.files.items():
             (self.graph / 'nodes' / name).write_text(body, encoding='utf-8')
         return checker.check(self.graph)
@@ -74,6 +76,41 @@ class GraphTests(unittest.TestCase):
     def test_cycle(self):
         self.rows[0] = ('[N1-ban](nodes/N1-ban.md)', 'Done', 'depends_on N2')
         self.assertIn('High dependency cycle', self.messages())
+
+
+    def conduct(self):
+        self.extra = ('\n## Conductor\nMode: conductor (session: s1, since 2026-11-12)\n'
+                      'Goal: g\nNext action: a\n\n## Delegations\n'
+                      '| ID | Owner | Task | Brief | Holds | State |\n|---|---|---|---|---|---|\n'
+                      '| D1 | agent: scan | t | artifacts/D1-brief.md | — | Running |\n')
+
+    def test_owner_in_status_cell(self):
+        self.conduct()
+        self.rows[1] = ('[N2-console](nodes/N2-console.md)', 'In Progress (chip: wire-console)', 'depends_on N1')
+        self.files['N2-console.md'] = READY + '\n## Progress Snapshot\n- Stopping point: brief sent\n'
+        self.assertEqual(self.findings(), [])
+
+    def test_graph_without_executable_node_is_archived(self):
+        self.rows = [self.rows[0]]
+        del self.files['N2-console.md']
+        self.assertIn(f'Low {checker.TO_ARCHIVE}', self.messages())
+
+    def test_conductor_graph_is_not_archived(self):
+        self.rows = [self.rows[0]]
+        del self.files['N2-console.md']
+        self.conduct()
+        self.assertEqual(self.findings(), [])
+
+    def test_conductor_graph_goes_stale(self):
+        import os, time
+        self.rows = [self.rows[0]]
+        del self.files['N2-console.md']
+        self.conduct()
+        self.findings()
+        old = time.time() - 40 * 86400
+        os.utime(self.graph / 'index.md', (old, old))
+        self.assertTrue(any(m.startswith(f'Low {checker.STALE_PREFIX}') for m in
+                            [f'{s} {m}' for s, m in checker.check(self.graph)]))
 
 
 if __name__ == '__main__':

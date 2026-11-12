@@ -20,6 +20,11 @@ Record what this session actually did. Future work that has not started is not a
 5. Update `index.md` last. If no executable node remains, archive the graph.
 6. Run the checks in format.md and fix High and Medium findings this save introduced.
 
+## Conductor graphs
+
+- The conductor saves as above, and also rewrites `## Conductor` (Goal, Next action) and `## Delegations` to the current state.
+- A work session saves only its own node file: steps 1 to 3 for that node, then step 6. It does not touch `index.md`, DECISIONS.md or other nodes; it reports the status it reached, and the conductor applies it.
+
 ## Leave out
 
 Transcript summaries, reasoning traces, exploration that led nowhere (keep only the conclusion, as a rejected direction), and anything already in source files or docs (link to it).

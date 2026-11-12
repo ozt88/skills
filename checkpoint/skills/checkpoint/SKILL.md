@@ -1,6 +1,6 @@
 ---
 name: checkpoint
-description: Keeps a resumable ledger of multi-session work in .checkpoint/graphs/ so the user can /clear without losing decisions or progress. Use when the user asks to save, checkpoint, resume, continue, plan future work, or audit a checkpoint; at a work boundary (moving to an unrelated task, correcting the same problem more than twice, finishing a task); when the checkpoint hook reports a compaction; or when a fresh session starts in a project with active checkpoint graphs. Subcommands are save, next, plan, review, audit.
+description: Keeps a resumable ledger of multi-session work in .checkpoint/graphs/ so the user can /clear without losing decisions or progress. Use when the user asks to save, checkpoint, resume, continue, plan future work, or audit a checkpoint; at a work boundary (moving to an unrelated task, correcting the same problem more than twice, finishing a task); when the checkpoint hook reports a compaction; or when a fresh session starts in a project with active checkpoint graphs. Also use when the user runs init to make the session a conductor that keeps the context and delegates the work to subagents or chips, then judges their results. Subcommands are save, next, plan, review, audit, init.
 ---
 
 # Checkpoint
@@ -20,6 +20,7 @@ The subcommand is the first word of the arguments (`$ARGUMENTS` in Claude Code) 
 | `plan` | split unstarted future work into nodes | [plan.md](plan.md) |
 | `next` | open the next node in a fresh session | [next.md](next.md) |
 | `audit` | check whether a graph can be trusted | [audit.md](audit.md) |
+| `init` | make this session the conductor of a graph, creating the graph if none is active (run by the user only) | [init.md](init.md), then [conductor.md](conductor.md) |
 
 Without a subcommand: in a fresh session where active graphs exist and no work has started, run `next`; otherwise run `review`.
 
@@ -28,7 +29,8 @@ Every subcommand except `review` reads or writes graph files, so read [format.md
 ## Rules for every subcommand
 
 - `review` never writes graph files. `audit` writes only when the user asks for a repair.
-- `index.md` is the only source of node status.
+- `index.md` is the only source of node status. In a conductor graph only the conductor writes it.
+- If the graph has a `## Conductor` section, read [conductor.md](conductor.md) too.
 - Write graph files and replies in the user's language. Keep the section headings from format.md in English; the checks look for them.
 - Treat a saved graph as possibly stale. The newest user message and the current files win; report a conflict before acting on it.
 - When a subcommand could have written graph files, end the reply with `Checkpoint state: updated` or `Checkpoint state: unchanged — <reason>`.

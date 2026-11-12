@@ -30,7 +30,7 @@ Despite the name, this project is unrelated to Claude Code's `/rewind` checkpoin
 
 ## Usage
 
-One skill, `checkpoint`, with five subcommands:
+One skill, `checkpoint`, with six subcommands:
 
 | Subcommand | Use it to |
 |---|---|
@@ -39,6 +39,7 @@ One skill, `checkpoint`, with five subcommands:
 | `/checkpoint plan` | split unstarted future work into nodes (proposes first, writes after approval) |
 | `/checkpoint next` | in a fresh session, open the next node with minimal context |
 | `/checkpoint audit` | check whether a graph can be trusted before resuming it |
+| `/checkpoint init` | make this session the conductor: it keeps the context and delegates the work (run by hand) |
 
 In Codex, mention the skill the way Codex does (for example `$checkpoint save`).
 
@@ -57,6 +58,12 @@ A **work boundary** is one of:
 - finishing a task when the next request is a different slice
 
 Session length and token count alone are not boundaries. Checkpoint does not ask you to stop work early.
+
+### Conductor mode
+
+For a long session, run `/checkpoint init <goal>`. It creates a graph if none is active and marks the session as the conductor in `index.md`. From then on the conductor talks with the user, keeps the graph and a `## Delegations` table current, and hands every piece of work, small lookups included, to background subagents, chips, or a session in another project. Each brief carries criteria and a stop condition written before the result exists. The work session reports back when it meets them or finds it cannot (a subagent by its final reply, a chip by `SendMessage` to the conductor session; Codex has neither chips nor messages between sessions, so there reports come through subagents or the user), and the conductor writes every report into the graph before moving on. It judges results against them, with a separate verifier subagent for medium work and `adversarial-review` for large work. Shared resources (a branch, an environment, a push) are held by one work session at a time.
+
+The conductor's context still grows, so the cycle stays: `save`, `/clear`, `next`. In a conductor graph, `next` resumes the conductor role instead of opening a node. Rules: [skills/checkpoint/conductor.md](./skills/checkpoint/conductor.md).
 
 ### When compaction happens first
 
@@ -85,7 +92,8 @@ checkpoint/
 ├─ skills/checkpoint/
 │  ├─ SKILL.md            routing and shared rules
 │  ├─ format.md           graph format
-│  ├─ save.md  plan.md  next.md  review.md  audit.md
+│  ├─ save.md  plan.md  next.md  review.md  audit.md  init.md
+│  ├─ conductor.md        conductor mode rules
 │  ├─ scripts/            check_graph.py, extract_prompts.py
 │  └─ agents/openai.yaml  Codex UI metadata
 ├─ hooks/checkpoint_compact_hook.py

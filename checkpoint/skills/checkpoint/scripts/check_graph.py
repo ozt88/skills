@@ -37,6 +37,8 @@ STALE_DAYS = 30
 TO_ARCHIVE = "no executable node left; archive the graph"
 STALE_PREFIX = "stale since "
 
+CONDUCTOR = re.compile(r"^#+\s*conductor\s*$", re.I | re.M)
+
 NODE_ID = re.compile(r"\bN\d+\b")
 NODE_LINK = re.compile(r"(nodes/[^)\s`|]+\.md)")
 
@@ -207,12 +209,15 @@ def check(gdir: pathlib.Path) -> list[tuple[str, str]]:
     live = [n for n, v in nodes.items() if v[0] in EXECUTABLE]
     if archived and live:
         out.append(("Low", f"archived graph still has executable nodes: {', '.join(live)}"))
-    if not archived and not live:
+    # A conductor graph may have no node yet while its delegations run, so it is not archived for that.
+    conductor = CONDUCTOR.search(text) is not None
+    if not archived and not live and not conductor:
         out.append(("Low", TO_ARCHIVE))
     # Stale: open nodes not all parked already, and nothing touched for a while; a node left
     # In Progress for that long counts too, since abandoned work is the common case.
+    # A conductor graph untouched that long was left behind whatever its nodes are.
     waiting = [n for n in live if nodes[n][0] != "parked"]
-    if not archived and waiting:
+    if not archived and (waiting or conductor):
         edited = datetime.date.fromtimestamp(index.stat().st_mtime)
         if (datetime.date.today() - edited).days >= STALE_DAYS:
             busy = [n for n in waiting if nodes[n][0] == "in progress"]

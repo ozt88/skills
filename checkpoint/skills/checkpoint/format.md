@@ -2,7 +2,7 @@
 
 ## Contents
 - Location and archive
-- index.md
+- index.md (Conductor and Delegations)
 - Status values and edges
 - Node files
 - DECISIONS.md
@@ -44,6 +44,28 @@ N2 — one line on why.
 ```
 
 Graphs made with other column layouts (an `ID` column, a `Depends on` column) stay valid. Keep a graph's existing layout when editing it.
+
+### Conductor and Delegations
+
+A graph in conductor mode ([conductor.md](conductor.md)) has two more sections after `## Nodes`:
+
+```md
+## Conductor
+Mode: conductor (session: UT prep [4f2a1c], since 2026-11-12)
+Goal: one line
+Next action: one line
+
+## Delegations
+| ID | Owner | Task | Brief | Holds | State |
+|---|---|---|---|---|---|
+| D1 | agent: log-scan | find why matching fails | artifacts/D1-brief.md | — | Running |
+| N3 | chip: deploy-dev | deploy the fix to dev | nodes/N3-deploy-dev.md | dev env | Review |
+```
+
+- State is one of Running, Waiting (ready, waiting for a resource), Review, Rework. A resolved row is deleted.
+- Owner is `agent: <name>`, `chip: <title>` or `handoff: <project>`. A node handed to a work session also carries its owner in the status cell: `In Progress (chip: deploy-dev)`.
+- In conductor mode only the conductor writes `index.md`. Work sessions write their own node or result file and report; when two sessions write `index.md`, the later write silently drops the other's change.
+- A graph with a `## Conductor` section is not archived for having no executable node, since delegations may still be running.
 
 ## Status values and edges
 
@@ -126,7 +148,7 @@ Run from this skill's directory:
 python3 scripts/check_graph.py <graph-dir>
 ```
 
-It reports missing files, rows listed twice, unknown status words, missing or empty Output Contract or Progress Snapshot sections, status lines that disagree with `index.md`, unknown or cyclic dependencies, Ready nodes whose dependencies are not Done, unlisted node files, Progress Snapshots that grew past the current state (too long, or kept as rounds), stale graphs, and graphs that should be archived.
+It reports missing files, rows listed twice, unknown status words, missing or empty Output Contract or Progress Snapshot sections, status lines that disagree with `index.md`, unknown or cyclic dependencies, Ready nodes whose dependencies are not Done, unlisted node files, Progress Snapshots that grew past the current state (too long, or kept as rounds), stale graphs, and graphs that should be archived (conductor graphs excepted).
 
 `python3 scripts/check_graph.py --all <project-root>` checks every active graph of a project and ends with the graphs to archive and to park.
 

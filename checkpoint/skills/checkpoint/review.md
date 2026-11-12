@@ -22,6 +22,8 @@ python3 scripts/extract_prompts.py <transcript_path>
 
 It prints the user prompts in order with `--- compaction ---` markers. If the path is missing or the script exits non-zero, judge from the compacted summary and say that you did.
 
+If an active graph's `index.md` has a `## Conductor` section naming this session, the summary may have lost the role. Before judging the boundary, restate it in one or two lines: this session is the conductor and delegates the work ([conductor.md](conductor.md)). Then list the `## Delegations` rows and who holds which resource. Reading these files is allowed; writing is not.
+
 ## Reply
 
 Two to four lines: what the session has covered, the boundary you see, and the risk of continuing in this context. Then offer two choices: continue here, or `/checkpoint save` followed by `/clear`.
