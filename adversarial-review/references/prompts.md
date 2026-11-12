@@ -23,7 +23,8 @@ agent 방식에서도 입력을 두 메시지로 나눈다. 첫 메시지에는 
 
 첫 메시지:
 
-당신은 {R-ID}, 렌즈는 {architect/skeptic/minimalist}다. 렌즈의 질문: {evaluation.md 렌즈 표의 해당 칸 전문}. 목표 G1..Gn: {원문과 출처}. 원칙 문서: {경로}. 이것만 읽고, 목표마다 좋은 안이 갖춰야 할 조건과 접근 방법을 expectations로 적어 {run}/raw/{R-ID}-1.json에 저장하고 끝내라. 다른 파일을 찾아 읽지 말라.
+목표 G1..Gn: {원문과 출처}. 원칙 문서: {경로}. (여기까지는 모든 좌석에 글자 하나까지 같게 넣는다. execution.md "공통 앞부분과 결과 전달")
+당신은 {R-ID}, 렌즈는 {architect/skeptic/minimalist}다. 렌즈의 질문: {evaluation.md 렌즈 표의 해당 칸 전문}. 위 자료만 읽고, 목표마다 좋은 안이 갖춰야 할 조건과 접근 방법을 expectations로 적어 {run}/raw/{R-ID}-1.json에 저장하고 끝내라. 다른 파일을 찾아 읽지 말라.
 
 둘째 메시지(SendMessage 등으로 같은 좌석에):
 
