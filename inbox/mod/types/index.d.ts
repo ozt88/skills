@@ -22,6 +22,8 @@ declare module 'claude-code' {
       items: Item[]
       // Why the last read or write failed; null after a good one.
       error: string | null
+      // The latest morning report's date and one-line summary, from report.md; null when there is none.
+      summary: { day: string; line: string } | null
       // Today's date as of the last read, `YYYY-MM-DD`.
       today: string
       // The band was dismissed for this session.

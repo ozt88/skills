@@ -2,7 +2,7 @@ import { expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 import { sideEffect, WORKER_MARK } from '../hooks/guard'
-import { append, complete, dayOf, dueLabel, extractDue, openItems, parse, urgentItems } from '../hooks/todo'
+import { accept, append, complete, dayOf, dueLabel, extractDue, openItems, parse, summaryOf, urgentItems } from '../hooks/todo'
 
 const DIR = 'C:/Users/me/inbox'
 const FILE = `${DIR}/todo.md`
@@ -76,6 +76,7 @@ test('parse reads checkboxes, tags and due dates, and skips sub-steps', () => {
     work: 'release-process',
   })
   expect(items[1].isDone).toBe(true)
+  expect(parse('- [ ] 결제 화면 정리 #프로젝트A checkpoint:shop/checkout-flow added:2026-11-04')[0].title).toBe('결제 화면 정리')
 })
 
 test('open items put dated ones first; urgent keeps the ones due soon', () => {
@@ -220,16 +221,43 @@ test('a session that starts with the worker mark is fenced; others are not', asy
   expect(await $.tool.call({ tool: 'Write', file_path: `${DIR}/work/a.md`, content: 'x' })).toEqual({ result: {} })
 })
 
-test('/todo adds its text without opening the pane, and asks for text when bare', async ($, on) => {
+test('/inbox adds its text without opening the pane, and opens the pane when bare; /todo is the same', async ($, on) => {
   const files = fakeFs(on, '')
   const opened = await start($, on)
 
-  const ran = await $.command.run({ command: 'todo', args: '테스트 시나리오 재작성 #프로젝트A' })
+  const ran = await $.command.run({ command: 'inbox', args: '테스트 시나리오 재작성 #프로젝트A' })
   expect(ran.text).toBe('추가함: 테스트 시나리오 재작성 #프로젝트A')
   expect(files[FILE]).toContain('# Inbox\n\n- [ ] 테스트 시나리오 재작성 #프로젝트A added:')
-
-  expect((await $.command.run({ command: 'todo', args: '' })).text).toContain('/todo 뒤에 내용')
+  expect((await $.command.run({ command: 'todo', args: '아이디어 #제안' })).text).toBe('추가함: 아이디어 #제안')
   expect(opened).toEqual([])
+
   await $.command.run({ command: 'inbox', args: '' })
-  expect(opened).toEqual(['inbox'])
+  await $.command.run({ command: 'todo', args: ' ' })
+  expect(opened).toEqual(['inbox', 'inbox'])
+})
+
+test('suggestions sort last and are accepted by dropping the tag; the report gives a summary line', () => {
+  const body = '- [ ] 제안 하나 #제안 #프로젝트A added:2026-11-04\n- [ ] 할 일 added:2026-11-04\n'
+  const items = parse(body)
+  expect(openItems(items).map(i => i.title)).toEqual(['할 일', '제안 하나'])
+  expect(accept(body, items[0])).toBe('- [ ] 제안 하나 #프로젝트A added:2026-11-04\n- [ ] 할 일 added:2026-11-04\n')
+
+  expect(summaryOf('# 아침 정리 2026-11-05\n\n> 보류 1건, 새 항목 2, 제안 2\n\n## 0. 어제 한 일\n')).toEqual({
+    day: '2026-11-05',
+    line: '보류 1건, 새 항목 2, 제안 2',
+  })
+  expect(summaryOf('# 다른 문서\n')).toBe(null)
+})
+
+test('the pane shows the morning summary and accepts a suggestion', async ($, on) => {
+  const files = fakeFs(on, '- [ ] 스킬 정리 #제안 added:2026-11-04\n')
+  files[`${DIR}/report.md`] = `# 아침 정리 ${shift(0)}\n\n> 보류 1건, 제안 1\n`
+  await start($, on)
+
+  const ui = await $.ui.mount(PANE)
+  expect((await ui.find({ type: 'Text', text: /아침 정리/ }))?.text).toBe('아침 정리 오늘: 보류 1건, 제안 1')
+  await ui.press({ key: 'accept-0' })
+  expect(files[FILE]).toBe('- [ ] 스킬 정리 added:2026-11-04\n')
+  expect(await ui.find({ type: 'Text', text: /#제안/ })).toBe(undefined)
+  await ui.unmount()
 })

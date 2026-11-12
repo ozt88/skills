@@ -2,13 +2,29 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import { GUARD_NOTE, sideEffect, WORKER_MARK } from './guard'
-import { append, complete, dayOf, dueLabel, nextPrompt, openItems, parse, urgentItems, workPrompt } from './todo'
+import {
+  accept,
+  append,
+  complete,
+  dayOf,
+  dueLabel,
+  isSuggestion,
+  nextPrompt,
+  openItems,
+  parse,
+  reportPrompt,
+  summaryOf,
+  urgentItems,
+  workPrompt,
+} from './todo'
 
 const PANE = 'inbox'
 const REFRESH_MS = 60_000
+const USAGE = '예: /inbox 셀프체크 작성 #업무 11/13까지'
 
 const items = atom({ plugin: 'inbox', key: 'items' } as const, [])
 const error = atom({ plugin: 'inbox', key: 'error' } as const, null)
+const summary = atom({ plugin: 'inbox', key: 'summary' } as const, null)
 const today = atom({ plugin: 'inbox', key: 'today' } as const, '')
 const isBandHidden = atom({ plugin: 'inbox', key: 'isBandHidden' } as const, false)
 const isWorker = atom({ plugin: 'inbox', key: 'isWorker' } as const, false)
@@ -26,7 +42,8 @@ async function readBody($: EngineInterface, file: string): Promise<string> {
 }
 
 async function refresh($: EngineInterface) {
-  const file = `${await inboxDir($)}/todo.md`
+  const dir = await inboxDir($)
+  const file = `${dir}/todo.md`
   try {
     const body = await readBody($, file)
     await update($, items, () => parse(body))
@@ -34,6 +51,9 @@ async function refresh($: EngineInterface) {
   } catch (err) {
     await update($, error, () => `${file}을 읽지 못함: ${String(err)}`)
   }
+  // A missing or unreadable report only hides the summary line.
+  const report = await readBody($, `${dir}/report.md`).catch(() => '')
+  await update($, summary, () => summaryOf(report))
   await update($, today, () => dayOf(new Date()))
 }
 
@@ -57,11 +77,21 @@ const add = ($: EngineInterface, text: string) =>
 const askNext = async ($: EngineInterface) =>
   $.prompt.submit({ text: nextPrompt(await inboxDir($)) })
 
+// `/inbox <text>` adds; bare `/inbox` opens the pane. `/todo` is the same command under its old name.
+async function run($: EngineInterface, args: string) {
+  if (args.trim() !== '') {
+    return { text: (await add($, args)) ? `추가함: ${args.trim()}` : (await read($, error)) ?? '추가하지 못함' }
+  }
+  await refresh($)
+  await $.ui.open({ id: PANE, title: '할 일' })
+  return { text: `할 일 패널을 열었습니다. 추가는 ${USAGE}` }
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     const result = await next(e)
-    await $.command.register({ name: 'todo', description: '할 일이나 아이디어를 추가한다: /todo <내용>' })
-    await $.command.register({ name: 'inbox', description: '할 일 패널을 연다' })
+    await $.command.register({ name: 'inbox', description: '할 일 패널을 연다. /inbox <내용>은 할 일이나 아이디어를 추가한다' })
+    await $.command.register({ name: 'todo', description: '/inbox와 같다' })
     await $.command.register({ name: 'next', description: '할 일 목록에서 지금 할 일 하나를 추천받는다' })
     await refresh($)
     // Picks up edits from an editor, the morning task, or another session.
@@ -83,16 +113,8 @@ export const register: Register = on => {
     return why === null ? next(e) : { deny: `inbox 작업 세션: ${why}` }
   })
 
-  on('command.run', { command: 'todo' }, async ($, e) => {
-    if (e.args.trim() === '') return { text: '/todo 뒤에 내용을 적어 주세요. 예: /todo 셀프체크 작성 #업무 11/13까지' }
-    return { text: (await add($, e.args)) ? `추가함: ${e.args.trim()}` : (await read($, error)) ?? '추가하지 못함' }
-  })
-
-  on('command.run', { command: 'inbox' }, async $ => {
-    await refresh($)
-    await $.ui.open({ id: PANE, title: '할 일' })
-    return { text: '할 일 패널을 열었습니다.' }
-  })
+  on('command.run', { command: 'inbox' }, ($, e) => run($, e.args))
+  on('command.run', { command: 'todo' }, ($, e) => run($, e.args))
 
   on('command.run', { command: 'next' }, async $ => {
     await askNext($)
@@ -104,9 +126,18 @@ export const register: Register = on => {
     const day = await read($, today)
     const open = openItems(await read($, items))
     const problem = await read($, error)
+    const report = await read($, summary)
 
     return (
       <Box flexDirection="column" gap={1}>
+        {report !== null && (
+          <Box gap={1}>
+            <Text dimColor={report.day !== day}>
+              아침 정리 {report.day === day ? '오늘' : report.day}: {report.line}
+            </Text>
+            <Button key="report" label="전체 보기" onPress={async () => void $.prompt.submit({ text: reportPrompt(await inboxDir($)) })} />
+          </Box>
+        )}
         {Input !== undefined && (
           <Input
             key="add"
@@ -123,7 +154,14 @@ export const register: Register = on => {
         {open.length === 0 && <Text dimColor>쌓인 할 일이 없습니다.</Text>}
         {open.map(item => (
           <Box key={`item-${item.line}`} gap={1}>
-            <Button key={`done-${item.line}`} label="완료" onPress={() => void edit($, (body, d) => complete(body, item, d))} />
+            {isSuggestion(item) ? (
+              <Button key={`accept-${item.line}`} label="받기" onPress={() => void edit($, body => accept(body, item))} />
+            ) : null}
+            <Button
+              key={`done-${item.line}`}
+              label={isSuggestion(item) ? '버리기' : '완료'}
+              onPress={() => void edit($, (body, d) => complete(body, item, d))}
+            />
             <Box flexDirection="column" flexShrink={1}>
               <Text>{item.title}</Text>
               {(item.due !== null || item.tags.length > 0) && (

@@ -18,12 +18,12 @@ Todos come from everywhere (meetings, Slack, the middle of other work) and belon
 |---|---|
 | `~/inbox/todo.md` | The list. One `- [ ]` line per item, with optional `#tag` and `due:YYYY-MM-DD`. Indented lines are sub-steps. Edit it by hand any time. |
 | `~/inbox/projects.md` | Which repository each tag means. `/next` fills it in when it meets a tag it does not know. |
-| Mod: pane | `/inbox` opens it. A field to add an item, open items with dated ones first, a button to check one off, and a button for `/next`. |
+| Mod: `/inbox` | `/inbox <text>` adds an item or idea; bare `/inbox` opens the pane. `/todo` is the same command. |
+| Mod: pane | The morning report's one-line summary with a button to read it all, a field to add an item, open items with dated ones first and suggestions last, a button to check one off, "받기" or "버리기" on a suggestion, and a button for `/next`. |
 | Mod: band | Above the prompt in every session, while an item is past due or due within 3 days. Hidden for the session with one press. |
-| Mod: `/todo <text>` | Adds an item or idea without opening the pane. Bare `/todo` only shows how to use it. |
 | Deadline words | When adding, the first of `11/13`, `~11/13`, `11/13까지`, `오늘`, `내일`, `모레`, `금요일`, `금까지`, `다음주 월요일` in the text becomes `due:YYYY-MM-DD`, so you never type the format. A month/day already past means next year. |
 | Mod: `/next` | Asks the model to pick one item (past due, due soon, an open checkpoint, unblocked steps, then age), say why, name the repository, and offer to start a session there. |
-| Scheduled task | Weekdays at 9: yesterday's tasks and open questions from a daily-task run when one left a report (`~/.local/state/daily-task/runs/`), with a dated progress line added under the open item each task clearly belongs to (never checked off), due items, 1–3 picks for the day, items open over 14 days, items that need a date or tag; moves items done over a week ago to `done.md`. |
+| Scheduled task | Weekdays at 9 it updates the list and writes `~/inbox/report.md`. Progress: a dated line under the open item each daily-task task (`~/.local/state/daily-task/runs/`) clearly belongs to. Remaining work: one item per checkpoint graph under any repository in the home folder, linked with `checkpoint:<repo>/<graph>` and a `다음:` line rewritten from the graph each morning. Suggestions: up to 3 a day tagged `#제안`, cleared after a week untouched. Nothing is ever checked off for you. The report adds yesterday's tasks and open questions, due items, 1–3 picks, items open over 14 days and items that need a date or tag; items done over a week ago move to `done.md`. |
 
 ### The worker: research done before you open it
 

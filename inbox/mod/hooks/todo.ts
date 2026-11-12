@@ -17,7 +17,8 @@ const DUE = /(?:^|\s)due:(\d{4}-\d{2}-\d{2})(?=\s|$)/
 const TAG = /(?:^|\s)#([^\s#]+)/g
 // `work:<name>`: the worker's note for the item, `work/<name>.md` under the inbox folder.
 const WORK = /(?:^|\s)work:([\w.-]+)(?=\s|$)/
-const META = /(?:^|\s)(?:#[^\s#]+|(?:due|added|done):\d{4}-\d{2}-\d{2}|work:[\w.-]+)(?=\s|$)/g
+// `checkpoint:<repo>/<graph>` links an item to a checkpoint graph; the morning task keeps it.
+const META = /(?:^|\s)(?:#[^\s#]+|(?:due|added|done):\d{4}-\d{2}-\d{2}|(?:work|checkpoint):[\w./-]+)(?=\s|$)/g
 
 export function parse(body: string): Item[] {
   const out: Item[] = []
@@ -54,13 +55,19 @@ export function dueLabel(due: string, today: string): string {
   return n < 0 ? `${-n}일 지남` : n === 0 ? '오늘 마감' : `D-${n}`
 }
 
-// Open items, dated ones first by due date, then the rest in file order.
+// The morning task tags what it suggests with this; taking the tag off accepts the suggestion.
+export const SUGGEST_TAG = '제안'
+
+export const isSuggestion = (item: Item): boolean => item.tags.includes(SUGGEST_TAG)
+
+// Open items, dated ones first by due date, then the rest in file order; suggestions last.
 export function openItems(items: readonly Item[]): Item[] {
   return items
     .filter(i => !i.isDone)
     .sort((a, b) =>
-      a.due !== null && b.due !== null ? a.due.localeCompare(b.due) || a.line - b.line
-        : a.due !== null ? -1 : b.due !== null ? 1 : a.line - b.line)
+      Number(isSuggestion(a)) - Number(isSuggestion(b)) ||
+      (a.due !== null && b.due !== null ? a.due.localeCompare(b.due) || a.line - b.line
+        : a.due !== null ? -1 : b.due !== null ? 1 : a.line - b.line))
 }
 
 export const urgentItems = (items: readonly Item[], today: string): Item[] =>
@@ -115,17 +122,34 @@ export function append(body: string, raw: string, today: string): string {
   return `${base}${line}\n`
 }
 
-// Checks off the item at `item.line`. The file may have changed since it was parsed, so a line
-// that no longer holds the same text is looked up by text instead; null when it is gone.
-export function complete(body: string, item: Item, today: string): string | null {
+// Rewrites the line of `item`. The file may have changed since it was parsed, so a line that no
+// longer holds the same text is looked up by text instead; null when it is gone.
+function rewrite(body: string, item: Item, line: (raw: string) => string): string | null {
   const lines = body.split('\n')
   const holds = (i: number) => ITEM.exec(lines[i]?.replace(/\r$/, '') ?? '')?.[2] === item.raw
   const at = holds(item.line) ? item.line : lines.findIndex((_, i) => holds(i))
   if (at < 0) return null
   const cr = lines[at].endsWith('\r') ? '\r' : ''
-  lines[at] = `- [x] ${item.raw} done:${today}${cr}`
+  lines[at] = `${line(item.raw)}${cr}`
   return lines.join('\n')
 }
+
+export const complete = (body: string, item: Item, today: string): string | null =>
+  rewrite(body, item, raw => `- [x] ${raw} done:${today}`)
+
+// Keeps a suggestion as an ordinary item by taking its tag off.
+export const accept = (body: string, item: Item): string | null =>
+  rewrite(body, item, raw => `- [ ] ${raw.replace(new RegExp(`(?:^|\\s)#${SUGGEST_TAG}(?=\\s|$)`), '').trim()}`)
+
+// report.md, written by the morning task, opens with `# 아침 정리 YYYY-MM-DD` and a `> ` summary line.
+export function summaryOf(report: string): { day: string; line: string } | null {
+  const day = /^# 아침 정리 (\d{4}-\d{2}-\d{2})/m.exec(report)?.[1]
+  const line = /^> (.+)$/m.exec(report)?.[1]?.trim()
+  return day !== undefined && line !== undefined ? { day, line } : null
+}
+
+export const reportPrompt = (dir: string): string =>
+  `${dir}/report.md 를 읽고 오늘 아침 정리를 그대로 보여 줘. 내가 확인하거나 정해야 할 것을 먼저 짚어 준다.`
 
 export const workPrompt = (dir: string, item: Item): string =>
   `${dir}/work/${item.work}.md 를 읽고, "${item.title}" 항목에 Claude가 미리 해 둔 것을 정리해 줘.\n` +
@@ -137,6 +161,8 @@ export const nextPrompt = (dir: string): string =>
   `- 읽을 파일: ${dir}/todo.md (할 일), ${dir}/projects.md (태그별 저장소 경로, 없으면 건너뜀), ` +
   `항목에 work:<이름>이 있으면 ${dir}/work/<이름>.md (Claude가 미리 해 둔 조사와 프로토타입)\n` +
   '- 미리 해 둔 것이 있는 항목은 바로 이어서 할 수 있으니 같은 조건이면 먼저 고른다.\n' +
+  '- #제안 항목은 Claude가 제안만 한 것이라 고르지 않는다. 다른 후보가 없을 때만 "제안 중에는"으로 한 줄 덧붙인다.\n' +
+  '- checkpoint:<저장소>/<그래프> 가 있는 항목은 그 저장소의 .checkpoint/graphs/<그래프>/index.md에서 다음 노드를 읽어 이유에 쓴다.\n' +
   '- 기준 순서: 마감 지남 > 3일 안에 마감 > 진행 중인 checkpoint가 있는 항목 > 선행 단계가 끝난 항목 > 오래 묵은 항목\n' +
   '- 고른 항목, 고른 이유 한두 줄, 작업할 저장소를 말한다. 후보가 비슷하면 2순위도 한 줄로 덧붙인다.\n' +
   '- 저장소를 모르거나 #미정이면 어느 저장소에서 할지 묻고, 답을 받으면 projects.md에 태그와 경로를 적는다.\n' +
